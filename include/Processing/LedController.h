@@ -2,6 +2,8 @@
 #define LED_CONTROLLER_H
 
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include "config.h"
 
 class LedController {
@@ -15,6 +17,7 @@ public:
     
 private:
     static void blink(uint32_t delayMs, uint32_t times);
+    static SemaphoreHandle_t ledMutex;
 };
 
 #endif // LED_CONTROLLER_H

@@ -1,5 +1,6 @@
 #include "Processing/ProcessingLayer.h"
 #include "Processing/LedController.h"
+#include "Processing/NeonController.h"
 #include "TaskManager.h"
 #include "esp_log.h"
 
@@ -15,6 +16,7 @@ void ProcessingLayer::init(QueueHandle_t *qIn) {
   ESP_LOGI(TAG, "Entering %s", __FUNCTION__);
 
   LedController::init();
+  NeonController::init(); // Initialize Neon Lamp
   qInput = qIn;
   ESP_LOGI(TAG, "ProcessingLayer initialized.");
 }
@@ -64,8 +66,10 @@ void ProcessingLayer::handleEvent(SystemEvent event) {
              globalHumi);
     break;
   case EventType::BUTTON_PRESSED:
-    ESP_LOGI(TAG, "Processing: Button Pressed - Blinking 200ms for 3s");
-    LedController::blink200ms_for_3s();
+    // ESP_LOGI(TAG, "Processing: Button Pressed - Blinking 200ms for 3s");
+    // LedController::blink200ms_for_3s();
+    ESP_LOGI(TAG, "Processing: Button Pressed - Changing Neon Color");
+    NeonController::setNextColor(); // Change neon lamp color
     break;
   case EventType::MODE_CHANGE: {
     ESP_LOGI(TAG, "Processing: MODE_CHANGE Event Received.");

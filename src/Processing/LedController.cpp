@@ -4,8 +4,13 @@
 #include <freertos/task.h>
 
 static const char *TAG = "LedController";
+SemaphoreHandle_t LedController::ledMutex = NULL;
 
 void LedController::init() {
+    if (ledMutex == NULL) {
+        ledMutex = xSemaphoreCreateMutex();
+    }
+    
     if (GREEN_LED_GPIO != -1) {
         pinMode(GREEN_LED_GPIO, OUTPUT);
         digitalWrite(GREEN_LED_GPIO, LOW);
@@ -15,12 +20,18 @@ void LedController::init() {
 
 void LedController::blink(uint32_t delayMs, uint32_t times) {
     if (GREEN_LED_GPIO == -1) return;
-    
-    for (uint32_t i = 0; i < times; i++) {
-        digitalWrite(GREEN_LED_GPIO, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(delayMs));
-        digitalWrite(GREEN_LED_GPIO, LOW);
-        vTaskDelay(pdMS_TO_TICKS(delayMs));
+    if (ledMutex == NULL) return;
+
+    // Chờ lấy khóa (Mutex). Nếu có task khác đang blink thì task này sẽ đợi.
+    if (xSemaphoreTake(ledMutex, portMAX_DELAY) == pdPASS) {
+        for (uint32_t i = 0; i < times; i++) {
+            digitalWrite(GREEN_LED_GPIO, HIGH);
+            vTaskDelay(pdMS_TO_TICKS(delayMs));
+            digitalWrite(GREEN_LED_GPIO, LOW);
+            vTaskDelay(pdMS_TO_TICKS(delayMs));
+        }
+        // Trả khóa sau khi blink xong
+        xSemaphoreGive(ledMutex);
     }
 }
 
