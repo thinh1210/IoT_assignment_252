@@ -1,1 +1,37 @@
-Một file chứ toàn bộ config.
+Green LED GPIO 48
+RED lED
+NEO LED GPIO 45
+Button GPIO 
+Làm theo yêu cầu đề trước
+
+Todo list:
+[x] Use esp log to log:
+    [x] write function a log to debug and info
+    [x] Handle error with log errors
+
+Architecture:
+    lib: contains out-source lib and HAL 
+    include: 
+        Common: Events.h (Enum & Struct for Queue)
+        Input: InputLayer.h
+        Processing: ProcessingLayer.h
+        config.h (const values)
+        
+    src:
+        Input/: Input logic (Sensor, Button, Screen periodic update)
+        Processing/: Logic handling, state machine, global updates
+
+Communication:
+    Input -> Processing (Queue with Event Enum)
+    Processing -> Input (Queue or Signal if needed)
+
+Rule: camel
+Flow: 
+    Input -> Processing task -> input
+
+ToDo: test led using semaphore (3 color base on humidity)
+      test NeoPixel (3 color base on humidity)
+      test screen ( buy screen ) (3 color base on humidity)
+      Server, access point
+      TinyML
+      Data pushing to core iot
