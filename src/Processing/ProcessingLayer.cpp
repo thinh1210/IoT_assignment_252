@@ -1,4 +1,5 @@
 #include "Processing/ProcessingLayer.h"
+#include "Input/DHTSensor.h"
 #include "Processing/LedController.h"
 #include "Processing/NeonController.h"
 #include "Processing/WifiModeManager.h"
@@ -13,47 +14,57 @@ TaskHandle_t ProcessingLayer::task_manager_handle = NULL;
 TaskHandle_t ProcessingLayer::task_normal_mode_handle = NULL;
 TaskHandle_t ProcessingLayer::task_accesspoint_mode_handle = NULL;
 SystemMode ProcessingLayer::currentMode = SystemMode::NORMAL_MODE;
-String ProcessingLayer::deviceUID = "DEV-0001";
-ConfigData ProcessingLayer::currentConfig;
 Preferences ProcessingLayer::preferences;
 
 /**
  * @brief Initialize the Processing Layer
  */
 void ProcessingLayer::init(QueueHandle_t *qIn) {
-  ESP_LOGI(TAG, "Initializing Processing Layer...");
+  ESP_LOGI(TAG, "General ProcessingLayer Initialization...");
+  qInput = qIn;
 
   LedController::init();
   NeonController::init();
-  loadConfig(); // Load config before initializing WifiModeManager
-  WifiModeManager::init();
-  qInput = qIn;
+  loadConfig(); // Rule: configuration belongs to processing layer
 
-  // Rule 3.3.2: Processing layer starts the Manager Task which coordinates
-  // everything
+  // Initialize WiFi logic
+  WifiModeManager::init();
+
+  // Rule: State stored here
+  currentMode = SystemMode::NORMAL_MODE;
+
+  // Start the persistent Manager Task (Event Handler)
   ProcessingLayer::startManager();
 
-  ESP_LOGI(TAG, "Processing Layer ready.");
+  ESP_LOGI(TAG, "Processing Layer General Init ready.");
 }
 
 void ProcessingLayer::startManager() {
-  xTaskCreate(task_manager, "task_manager", 8192, NULL, 5,
-              &task_manager_handle);
+  xTaskCreate(task_manager, "system_manager", 8192, NULL, 5, &task_manager_handle);
 }
 
 void ProcessingLayer::initNormalMode() {
-  // Normal Mode can have multiple sub-tasks. For now: 1 worker.
-  xTaskCreate(task_normal_mode, "task_normal_mode", 8192, NULL, 4,
-              &task_normal_mode_handle);
+  deinitMode();
+  ESP_LOGI(TAG, "Initializing Processing Normal Mode Worker...");
+  xTaskCreate(task_normal_mode, "proc_normal_task", 8192, NULL, 4, &task_normal_mode_handle);
 }
 
 void ProcessingLayer::initAccessPointMode() {
-  // AccessPoint Mode can have multiple sub-tasks. For now: 1 worker.
-  xTaskCreate(task_accesspoint_mode, "task_accesspoint_mode", 8192, NULL, 4,
-              &task_accesspoint_mode_handle);
-  if (task_accesspoint_mode_handle != NULL) {
-    vTaskSuspend(task_accesspoint_mode_handle);
+  deinitMode();
+  ESP_LOGI(TAG, "Initializing Processing AccessPoint Mode Worker...");
+  xTaskCreate(task_accesspoint_mode, "proc_ap_task", 8192, NULL, 4, &task_accesspoint_mode_handle);
+}
+
+void ProcessingLayer::deinitMode() {
+  if (task_normal_mode_handle != NULL) {
+    vTaskDelete(task_normal_mode_handle);
+    task_normal_mode_handle = NULL;
   }
+  if (task_accesspoint_mode_handle != NULL) {
+    vTaskDelete(task_accesspoint_mode_handle);
+    task_accesspoint_mode_handle = NULL;
+  }
+  ESP_LOGI(TAG, "Worker tasks deleted.");
 }
 
 /**
@@ -78,42 +89,28 @@ void ProcessingLayer::task_manager(void *param) {
  * @brief Orchestrate mode switching by suspending/resuming tasks across layers
  */
 void ProcessingLayer::switchMode(SystemMode newMode) {
-  if (currentMode == newMode)
-    return;
+  if (currentMode == newMode) return;
 
   ESP_LOGI(TAG, "Mode Transition: %s -> %s",
            (currentMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"),
            (newMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"));
 
-  // 1. Suspend current mode tasks (Processing + Input)
-  if (currentMode == SystemMode::NORMAL_MODE) {
-    if (task_normal_mode_handle != NULL)
-      vTaskSuspend(task_normal_mode_handle);
-    // Add additional normal sub-tasks suspension here
-  } else if (currentMode == SystemMode::ACCESSPOINT_MODE) {
-    if (task_accesspoint_mode_handle != NULL)
-      vTaskSuspend(task_accesspoint_mode_handle);
-    // Add additional accesspoint sub-tasks suspension here
-  }
-
-  // 2. Perform Physical/Network transition
+  // 1. Physical/Network transition
   if (newMode == SystemMode::ACCESSPOINT_MODE) {
     WifiModeManager::startAccessPoint();
   } else {
     WifiModeManager::startClient();
   }
 
-  // 3. Resume new mode tasks (Processing + Input)
-  if (newMode == SystemMode::NORMAL_MODE) {
-    if (task_normal_mode_handle != NULL)
-      vTaskResume(task_normal_mode_handle);
-  } else if (newMode == SystemMode::ACCESSPOINT_MODE) {
-    if (task_accesspoint_mode_handle != NULL)
-      vTaskResume(task_accesspoint_mode_handle);
-  }
-
-  // 4. Delegate Input Layer mode switch (Coordination)
+  // 2. Delegate Input Layer mode switch (which handles its own task deletion)
   InputLayer::switchMode(newMode);
+
+  // 3. Update own worker tasks
+  if (newMode == SystemMode::NORMAL_MODE) {
+    initNormalMode();
+  } else {
+    initAccessPointMode();
+  }
 
   currentMode = newMode;
 }
@@ -180,35 +177,38 @@ void ProcessingLayer::task_accesspoint_mode(void *param) {
 }
 
 void ProcessingLayer::updateConfig(const ConfigData &newConfig) {
-  currentConfig = newConfig;
+  globalConfig = newConfig;
   saveConfig();
 }
 
 void ProcessingLayer::saveConfig() {
   preferences.begin("device_conf", false);
-  preferences.putString("wifi_ssid", currentConfig.wifi_ssid);
-  preferences.putString("wifi_pass", currentConfig.wifi_pass);
-  preferences.putString("mqtt_server", currentConfig.mqtt_server);
-  preferences.putInt("mqtt_port", currentConfig.mqtt_port);
-  preferences.putString("mqtt_user", currentConfig.mqtt_user);
-  preferences.putString("mqtt_pass", currentConfig.mqtt_pass);
-  preferences.putString("key_url", currentConfig.key_exchange_url);
+  preferences.putString("uid", globalConfig.device_uid);
+  preferences.putString("wifi_ssid", globalConfig.wifi_ssid);
+  preferences.putString("wifi_pass", globalConfig.wifi_pass);
+  preferences.putString("mqtt_server", globalConfig.mqtt_server);
+  preferences.putInt("mqtt_port", globalConfig.mqtt_port);
+  preferences.putString("mqtt_user", globalConfig.mqtt_user);
+  preferences.putString("mqtt_pass", globalConfig.mqtt_pass);
+  preferences.putString("key_url", globalConfig.key_exchange_url);
   preferences.end();
   ESP_LOGI(TAG, "Configuration saved to flash.");
 }
 
 void ProcessingLayer::loadConfig() {
   preferences.begin("device_conf", false);
-  deviceUID = preferences.getString("uid", "DEV-0001");
-  currentConfig.wifi_ssid = preferences.getString("wifi_ssid", WIFI_SSID);
-  currentConfig.wifi_pass = preferences.getString("wifi_pass", WIFI_PASSWORD);
-  currentConfig.mqtt_server =
-      preferences.getString("mqtt_server", "192.168.1.10");
-  currentConfig.mqtt_port = preferences.getInt("mqtt_port", 1883);
-  currentConfig.mqtt_user = preferences.getString("mqtt_user", "");
-  currentConfig.mqtt_pass = preferences.getString("mqtt_pass", "");
-  currentConfig.key_exchange_url =
-      preferences.getString("key_url", "http://192.168.1.10:8000/exchange");
+  globalConfig.device_uid = preferences.getString(
+      "uid", ACCESS_TOKEN); // Use ACCESS_TOKEN as default UID
+  globalConfig.wifi_ssid = preferences.getString("wifi_ssid", WIFI_SSID);
+  globalConfig.wifi_pass = preferences.getString("wifi_pass", WIFI_PASSWORD);
+  globalConfig.mqtt_server =
+      preferences.getString("mqtt_server", THINGSBOARD_SERVER);
+  globalConfig.mqtt_port = preferences.getInt("mqtt_port", 1883);
+  globalConfig.mqtt_user = preferences.getString("mqtt_user", "");
+  globalConfig.mqtt_pass = preferences.getString("mqtt_pass", "");
+  globalConfig.key_exchange_url =
+      preferences.getString("key_url", "app.coreiot.io");
   preferences.end();
-  ESP_LOGI(TAG, "Configuration loaded from flash.");
+  ESP_LOGI(TAG, "Configuration loaded from flash. SSID: %s",
+           globalConfig.wifi_ssid.c_str());
 }

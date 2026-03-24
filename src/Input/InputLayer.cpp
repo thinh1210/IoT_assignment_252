@@ -10,11 +10,12 @@ ButtonHandler *InputLayer::btnHandler = NULL;
 SemaphoreHandle_t InputLayer::btnSemaphore = NULL;
 SystemMode InputLayer::currentMode = SystemMode::NORMAL_MODE;
 
+TaskHandle_t InputLayer::task_manager_handle = NULL;
 TaskHandle_t InputLayer::task_normal_mode_handle = NULL;
 TaskHandle_t InputLayer::task_accesspoint_mode_handle = NULL;
 
 void InputLayer::init(QueueHandle_t *qProc) {
-  ESP_LOGI(TAG, "Entering %s", __FUNCTION__);
+  ESP_LOGI(TAG, "General InputLayer Initialization...");
   qProcessing = qProc;
 
   // 1. Create counting semaphore to receive button events
@@ -27,62 +28,73 @@ void InputLayer::init(QueueHandle_t *qProc) {
   if (BUTTON_GPIO != -1) {
     btnHandler->addButton(BUTTON_GPIO, 2000, true);
   }
-
   if (BUTTON_2_GPIO != -1) {
     btnHandler->addButton(BUTTON_2_GPIO, 2000, true);
   }
-
   btnHandler->begin();
 
   if (GREEN_LED_GPIO != -1)
     pinMode(GREEN_LED_GPIO, OUTPUT);
 
-  // Initialize DHT Sensor
+  // Initialize Sensors
   DHTSensor::init();
 
-  if (qProcessing == NULL || btnSemaphore == NULL) {
-    ESP_LOGE(TAG, "Failed to initialize: Queue or Semaphore is NULL");
-  } else {
-    ESP_LOGI(TAG, "InputLayer initialized successfully.");
+  // 3. Start Persistent Input Manager (Task that handles events)
+  xTaskCreate(task_manager, "input_manager", 4096, NULL, 6, &task_manager_handle);
+
+  ESP_LOGI(TAG, "InputLayer General Init successful.");
+}
+
+void InputLayer::task_manager(void *param) {
+  ESP_LOGI(TAG, "Input Manager Task started.");
+  while (1) {
+    // 1. Must call ButtonHandler loop() to update state
+    if (btnHandler != NULL) {
+      btnHandler->loop();
+    }
+
+    // 2. Wait for semaphore event notification (non-blocking or short wait)
+    if (xSemaphoreTake(btnSemaphore, pdMS_TO_TICKS(10)) == pdPASS) {
+      handleButtonEvents();
+    }
+    
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
 void InputLayer::initNormalMode() {
-  ESP_LOGI(TAG, "Initialize Input Normal Mode Task.");
-  xTaskCreate(task_normal_mode, "task_normal_mode", 4096, NULL, 6,
-              &task_normal_mode_handle);
+  deinitMode(); // Ensure clean state
+  ESP_LOGI(TAG, "Initializing Input Normal Mode Tasks...");
+  xTaskCreate(task_normal_mode, "in_normal_task", 4096, NULL, 5, &task_normal_mode_handle);
 }
 
 void InputLayer::initAccessPointMode() {
-  ESP_LOGI(TAG, "Initialize Input AccessPoint Mode Task.");
-  xTaskCreate(task_accesspoint_mode, "task_accesspoint_mode", 4096, NULL, 6,
-              &task_accesspoint_mode_handle);
-  if (task_accesspoint_mode_handle != NULL) {
-    vTaskSuspend(task_accesspoint_mode_handle);
+  deinitMode(); // Ensure clean state
+  ESP_LOGI(TAG, "Initializing Input AccessPoint Mode Tasks...");
+  xTaskCreate(task_accesspoint_mode, "in_ap_task", 4096, NULL, 5, &task_accesspoint_mode_handle);
+}
+
+void InputLayer::deinitMode() {
+  if (task_normal_mode_handle != NULL) {
+    vTaskDelete(task_normal_mode_handle);
+    task_normal_mode_handle = NULL;
   }
+  if (task_accesspoint_mode_handle != NULL) {
+    vTaskDelete(task_accesspoint_mode_handle);
+    task_accesspoint_mode_handle = NULL;
+  }
+  ESP_LOGI(TAG, "Mode tasks deleted.");
 }
 
 void InputLayer::switchMode(SystemMode newMode) {
-  if (currentMode == newMode)
-    return;
-  ESP_LOGI(TAG, "Input switching Mode: %d -> %d", (int)currentMode,
-           (int)newMode);
-
-  switch (newMode) {
-  case SystemMode::NORMAL_MODE:
-    if (task_accesspoint_mode_handle != NULL)
-      vTaskSuspend(task_accesspoint_mode_handle);
-    if (task_normal_mode_handle != NULL)
-      vTaskResume(task_normal_mode_handle);
-    break;
-  case SystemMode::ACCESSPOINT_MODE:
-    if (task_normal_mode_handle != NULL)
-      vTaskSuspend(task_normal_mode_handle);
-    if (task_accesspoint_mode_handle != NULL)
-      vTaskResume(task_accesspoint_mode_handle);
-    break;
+  if (currentMode == newMode) return;
+  ESP_LOGI(TAG, "Switching Input Mode: %d -> %d", (int)currentMode, (int)newMode);
+  
+  if (newMode == SystemMode::NORMAL_MODE) {
+    initNormalMode();
+  } else {
+    initAccessPointMode();
   }
-
   currentMode = newMode;
 }
 
@@ -90,38 +102,19 @@ void InputLayer::task_normal_mode(void *param) {
   uint32_t lastSensorRead = 0;
   while (1) {
     uint32_t now = millis();
-
-    // 1. Must call ButtonHandler loop() to update state
-    if (btnHandler != NULL) {
-      btnHandler->loop();
-    }
-
-    // 2. Wait for semaphore event notification (non-blocking)
-    if (xSemaphoreTake(btnSemaphore, 0) == pdPASS) {
-      handleButtonEvents();
-    }
-
-    // 3. Periodic sensor reading for Normal mode (every 3000ms)
+    // Periodic sensor reading for Normal mode
     if (now - lastSensorRead >= 3000) {
       readSensors();
       lastSensorRead = now;
     }
-
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
 void InputLayer::task_accesspoint_mode(void *param) {
   while (1) {
-    if (btnHandler != NULL) {
-      btnHandler->loop();
-    }
-
-    if (xSemaphoreTake(btnSemaphore, 0) == pdPASS) {
-      handleButtonEvents();
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(50));
+    // In AP mode, maybe we do nothing or something specific
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 

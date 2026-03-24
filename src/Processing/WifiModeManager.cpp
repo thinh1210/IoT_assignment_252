@@ -1,7 +1,7 @@
 #include "Processing/WifiModeManager.h"
 #include "Processing/ProcessingLayer.h"
-#include "data/WebPortal.h"
 #include "config.h"
+#include "data/WebPortal.h"
 #include "esp_log.h"
 
 static const char *TAG = "WifiModeMan";
@@ -27,7 +27,7 @@ void WifiModeManager::init() {
       [](AsyncWebServerRequest *request) {
         request->send(200, "application/json", "{\"status\":\"ok\"}");
       },
-      NULL, handleConfigData);
+      nullptr, handleConfigData);
 
   server.on("/toggle", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "Toggling...");
@@ -40,7 +40,7 @@ void WifiModeManager::init() {
   } else {
     startClient();
   }
-     
+
   server.begin();
   ESP_LOGI(TAG, "Web Server started.");
 }
@@ -63,14 +63,14 @@ bool WifiModeManager::isAccessPoint() {
 
 void WifiModeManager::startClient() {
   ESP_LOGI(TAG, "Starting CLIENT mode...");
-  
+
   WiFi.mode(WIFI_OFF);
   vTaskDelay(pdMS_TO_TICKS(100)); // Safety delay using vTaskDelay
-  
+
   WiFi.mode(WIFI_STA);
   ConfigData &conf = ProcessingLayer::getConfig();
   WiFi.begin(conf.wifi_ssid.c_str(), conf.wifi_pass.c_str());
-  
+
   ESP_LOGI(TAG, "Connecting to %s...", conf.wifi_ssid.c_str());
 }
 
@@ -78,8 +78,9 @@ void WifiModeManager::startAccessPoint() {
   ESP_LOGI(TAG, "Starting ACCESSPOINT mode...");
 
   // 1. Cleanup existing services
-  if (tb.connected()) tb.disconnect();
-  
+  if (tb.connected())
+    tb.disconnect();
+
   WiFi.mode(WIFI_OFF);
   vTaskDelay(pdMS_TO_TICKS(100)); // Safety delay
 
@@ -112,15 +113,22 @@ void WifiModeManager::handleConfigData(AsyncWebServerRequest *request,
   }
 
   ConfigData &conf = ProcessingLayer::getConfig();
-  if (doc.containsKey("wifi_ssid")) conf.wifi_ssid = doc["wifi_ssid"].as<String>();
-  if (doc.containsKey("wifi_pass")) conf.wifi_pass = doc["wifi_pass"].as<String>();
-  if (doc.containsKey("mqtt_server")) conf.mqtt_server = doc["mqtt_server"].as<String>();
-  if (doc.containsKey("mqtt_port")) conf.mqtt_port = doc["mqtt_port"] | 1883;
-  if (doc.containsKey("mqtt_user")) conf.mqtt_user = doc["mqtt_user"].as<String>();
-  if (doc.containsKey("key_url")) conf.key_exchange_url = doc["key_url"].as<String>();
+  if (doc.containsKey("device_uid")) conf.device_uid = doc["device_uid"].as<String>();
+  if (doc.containsKey("wifi_ssid"))
+    conf.wifi_ssid = doc["wifi_ssid"].as<String>();
+  if (doc.containsKey("wifi_pass"))
+    conf.wifi_pass = doc["wifi_pass"].as<String>();
+  if (doc.containsKey("mqtt_server"))
+    conf.mqtt_server = doc["mqtt_server"].as<String>();
+  if (doc.containsKey("mqtt_port"))
+    conf.mqtt_port = doc["mqtt_port"] | 1883;
+  if (doc.containsKey("mqtt_user"))
+    conf.mqtt_user = doc["mqtt_user"].as<String>();
+  if (doc.containsKey("key_url"))
+    conf.key_exchange_url = doc["key_url"].as<String>();
 
-  ProcessingLayer::saveConfig();
-  ESP_LOGI(TAG, "Config updated. WiFi SSID: %s", conf.wifi_ssid.c_str());
+  ProcessingLayer::updateConfig(conf);
+  ESP_LOGI(TAG, "Config updated & saved. WiFi SSID: %s", conf.wifi_ssid.c_str());
 }
 
 void WifiModeManager::maintainConnections() {
@@ -159,13 +167,15 @@ void WifiModeManager::sendTelemetry(float temp, float humi) {
 }
 
 void WifiModeManager::connectToWiFiInternal() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  if (WiFi.status() == WL_CONNECTED)
+    return;
   ConfigData &conf = ProcessingLayer::getConfig();
   WiFi.begin(conf.wifi_ssid.c_str(), conf.wifi_pass.c_str());
 }
 
 void WifiModeManager::connectToThingsBoardInternal() {
-  if (tb.connected()) return;
+  if (tb.connected())
+    return;
   String deviceUID = ProcessingLayer::getDeviceUID();
   if (!tb.connect(THINGSBOARD_SERVER, deviceUID.c_str())) {
     ESP_LOGE(TAG, "TB Connect Failed!");

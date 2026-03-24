@@ -56,28 +56,34 @@ void ButtonHandler::loop() {
                 else {
                     uint32_t duration = millis() - btn.pressStartTime;
 
-                    // Nếu nhả ra sau khi đã nhấn lâu (Long Press)
-                    if (duration >= btn.longPressTimeMs) {
-                        btn.lastEvent = ButtonEvent::LONG_PRESS;
-                        btn.clickCount = 0;
-                        btn.pendingClickProcess = false;
-                        if (_eventSemaphore != NULL) xSemaphoreGive(_eventSemaphore);
-                    } 
-                    // Nếu nhả ra bình thường (Check Click Đơn/Đôi/Ba)
-                    else if (duration > 50) { // Duration tối thiểu để tính là một click (chống nhiễu thêm)
-                        btn.clickCount++;
-                        btn.lastReleaseTime = millis();
-                        btn.pendingClickProcess = true;
-                        
-                        // Nếu đã đạt 3 click thì không cần đợi lâu nữa, báo luôn (hoặc có thể tăng giới hạn)
-                        if (btn.clickCount >= 3) {
-                            btn.lastEvent = ButtonEvent::TRIPLE_CLICK;
-                            btn.clickCount = 0;
-                            btn.pendingClickProcess = false;
-                            if (_eventSemaphore != NULL) xSemaphoreGive(_eventSemaphore);
+                    // Chỉ xử lý các click khác nếu KHÔNG phải là long press đã handle trước đó
+                    if (!btn.isLongPressing) {
+                        // Nếu nhả ra bình thường (Check Click Đơn/Đôi/Ba)
+                        if (duration > 50) { // Minimum duration to count as a click
+                            btn.clickCount++;
+                            btn.lastReleaseTime = millis();
+                            btn.pendingClickProcess = true;
+                            
+                            if (btn.clickCount >= 3) {
+                                btn.lastEvent = ButtonEvent::TRIPLE_CLICK;
+                                btn.clickCount = 0;
+                                btn.pendingClickProcess = false;
+                                if (_eventSemaphore != NULL) xSemaphoreGive(_eventSemaphore);
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        // --- XỬ LÝ LONG PRESS TỰ ĐỘNG (TRIGGER NGAY KHI ĐỦ THỜI GIAN) ---
+        if (btn.currentState == true && btn.isLongPressing == false) {
+            if ((millis() - btn.pressStartTime) >= btn.longPressTimeMs) {
+                btn.isLongPressing = true;
+                btn.lastEvent = ButtonEvent::LONG_PRESS;
+                btn.clickCount = 0;
+                btn.pendingClickProcess = false;
+                if (_eventSemaphore != NULL) xSemaphoreGive(_eventSemaphore);
             }
         }
 

@@ -17,8 +17,6 @@ private:
   static QueueHandle_t *qInput;
   // State stored in Processing Layer (Rule: No state in WifiModeManager)
   static SystemMode currentMode;
-  static String deviceUID;
-  static ConfigData currentConfig;
   static Preferences preferences;
 
   // Task handles for modes
@@ -26,7 +24,7 @@ private:
   static TaskHandle_t task_normal_mode_handle;
   static TaskHandle_t task_accesspoint_mode_handle;
 
-  // Internal Logic
+  static void startManager();
   static void handleEvent(SystemEvent event);
 
 public:
@@ -39,18 +37,20 @@ public:
   static void task_normal_mode(void *param);
   static void task_accesspoint_mode(void *param);
 
-  // Initialization methods
-  static void startManager();
+  // Mode-specific initialization (Create worker tasks)
   static void initNormalMode();
   static void initAccessPointMode();
+
+  // Cleanup current mode tasks
+  static void deinitMode();
 
   // Orchestration API
   static void switchMode(SystemMode newMode);
   static SystemMode getMode() { return currentMode; }
 
-  // State Access (Rule: WifiModeManager uses these)
-  static String getDeviceUID() { return deviceUID; }
-  static ConfigData &getConfig() { return currentConfig; }
+  // State Access
+  static String getDeviceUID() { return globalConfig.device_uid; }
+  static ConfigData &getConfig() { return globalConfig; }
   static void updateConfig(const ConfigData &newConfig);
   static void saveConfig();
   static void loadConfig();

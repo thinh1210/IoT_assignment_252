@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 struct ConfigData {
+  String device_uid;
   String wifi_ssid;
   String wifi_pass;
   String mqtt_server;

@@ -70,6 +70,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     
     <form id="configForm">
       <h2>WiFi Connection</h2>
+      <label for="device_uid">Client ID (Device Serial)</label>
+      <input type="text" id="device_uid" class="input_box" placeholder="Device Unique ID" required>
       <label for="wifi_ssid">SSID</label>
       <input type="text" id="wifi_ssid" class="input_box" placeholder="Network Name" required>
       <label for="wifi_pass">Password</label>
@@ -116,6 +118,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         btn.innerHTML = "SAVING..."; btn.disabled = true;
 
         const data = {
+            device_uid: document.getElementById('device_uid').value,
             wifi_ssid: document.getElementById('wifi_ssid').value,
             wifi_pass: document.getElementById('wifi_pass').value,
             mqtt_server: document.getElementById('mqtt_server').value,

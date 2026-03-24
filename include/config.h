@@ -2,6 +2,7 @@
 #define CONFIG_H
 
 #include <Arduino.h>
+#include "Common/ConfigData.h"
 
 // WiFi Configuration
 #define WIFI_SSID "BKIT_LUGIA_CS2"
@@ -40,5 +41,7 @@
 // Global variables (External declarations)
 extern float globalTemp;
 extern float globalHumi;
+
+extern ConfigData globalConfig;
 
 #endif // CONFIG_H
