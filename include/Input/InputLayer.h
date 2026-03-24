@@ -16,23 +16,27 @@ private:
     static SemaphoreHandle_t btnSemaphore;
     static SystemMode currentMode;
 
-    // Các thẻ quản lý sub-task cho Mode
-    static TaskHandle_t modeATaskHandle;
-    static TaskHandle_t modeBTaskHandle;
+    // Các thẻ quản lý // Task handles for modes
+    static TaskHandle_t task_normal_mode_handle;
+    static TaskHandle_t task_accesspoint_mode_handle;
     
     static void readSensors();
     static void handleButtonEvents();
 
+    // Worker Loops
+    static void task_normal_mode(void* param);
+    static void task_accesspoint_mode(void* param);
+
 public:
     static void init(QueueHandle_t* qProc);
 
-    // Mode A
-    static void initModeA();
-    static void taskModeALoop(void* param);
+    // Normal Mode
+    static void initNormalMode();
+    static void taskNormalModeLoop(void* param);
 
-    // Mode B
-    static void initModeB();
-    static void taskModeBLoop(void* param);
+    // AccessPoint Mode
+    static void initAccessPointMode();
+    static void taskAccessPointModeLoop(void* param);
 
     static void switchMode(SystemMode newMode);
 };

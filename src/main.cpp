@@ -1,57 +1,46 @@
-#include "Common/Events.h"
-#include "Input/InputLayer.h"
-#include "Processing/ProcessingLayer.h"
-#include "TaskManager.h"
-#include "config.h"
-#include "esp_log.h"
 #include <Arduino.h>
+#include "TaskManager.h"
+#include "Processing/ProcessingLayer.h"
+#include "Processing/WifiModeManager.h"
+#include "config.h"
 
-static const char *TAG = "Main";
+// Note: This main.cpp tests the full system integration with AccessPoint renaming.
+// You can switch modes via the Premium Web Interface (Chuyển Chế Độ button)
+// or by holding the button on the device.
 
-// Communication Queue
-QueueHandle_t mainQueue = NULL;
+static const char *TAG = "MainApp";
 
-// Global variables definition
+// Global variables defined here
 float globalTemp = 0.0f;
 float globalHumi = 0.0f;
 
-#include "Input/DHTSensor.h"
-
 void setup() {
-  Serial.begin(115200);
-  vTaskDelay(pdMS_TO_TICKS(1000));
-  ESP_LOGI(TAG, "System Starting in TEST MODE (DHT11 Only)...");
+    Serial.begin(115200);
+    delay(2000);
+    ESP_LOGI(TAG, "--- Project IoT: AccessPoint Mode Test ---");
 
-  // Create central queue
-  mainQueue = xQueueCreate(QUEUE_SIZE, sizeof(SystemEvent));
+    // 1. Initialize Queue for Inter-layer communication
+    static QueueHandle_t qInputToProcessing = xQueueCreate(QUEUE_SIZE, sizeof(SystemEvent));
 
-  if (mainQueue != NULL) {
-    ESP_LOGI(TAG, "Main queue created successfully.");
+    // 2. Initialize Layers
+    ProcessingLayer::init(&qInputToProcessing);
+    InputLayer::init(&qInputToProcessing);
 
-    // Initialize layers
-    InputLayer::init(&mainQueue);
-    ProcessingLayer::init(&mainQueue);
-
-    // Initialize Mode sub-tasks via TaskManager
+    // 3. Initialize Mode Tasks (Normal & AccessPoint)
     TaskManager::initModes();
 
-    ESP_LOGI(TAG, "All initialization finished. Deleting setup task.");
-  } else {
-    ESP_LOGE(TAG, "Failed to create main queue!");
-  }
+    // VI DU: Ep buộc vào chế độ AccessPoint trực tiếp từ main để test (nếu muốn)
+    // Uncomment lines below to force start in AccessPoint mode
+    /*
+    ESP_LOGI(TAG, "Forcing AccessPoint Mode for testing...");
+    ProcessingLayer::switchMode(SystemMode::ACCESSPOINT_MODE);
+    */
 
-  // // Khởi tạo DHT Sensor
-  // DHTSensor::init();
+    ESP_LOGI(TAG, "System running. Connect to 'ESP32' WiFi to access portal.");
 }
 
 void loop() {
-  // float temp, humi;
-  // if (DHTSensor::readData(temp, humi)) {
-  //   ESP_LOGI(TAG, "Dữ liệu DHT11: Nhiệt độ = %.1f C, Độ ẩm = %.1f %%", temp,
-  //            humi);
-  // } else {
-  //   ESP_LOGE(TAG, "Không đọc được dữ liệu DHT11!");
-  // }
-
-  // vTaskDelay(pdMS_TO_TICKS(2000)); // Đọc mỗi 2 giây
+    // The system is managed by FreeRTOS tasks initialized in TaskManager
+    // No code needed here.
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }
