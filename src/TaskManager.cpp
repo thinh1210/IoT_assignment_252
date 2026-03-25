@@ -6,17 +6,9 @@
 static const char *TAG = "TaskManager";
 
 void TaskManager::initModes() {
-    ESP_LOGI(TAG, "Initializing Mode Tasks for all layers...");
+    ESP_LOGI(TAG, "Starting System in Normal Mode...");
     
-    // Khởi tạo mode tasks từ các layer
-    InputLayer::initModeA();
-    InputLayer::initModeB();
-    
-    ProcessingLayer::initModeA();
-    ProcessingLayer::initModeB();
-
-    // Set default mode ban đầu trực tiếp
-    
-    InputLayer::switchMode(SystemMode::MODE_A);
-    ProcessingLayer::switchMode(SystemMode::MODE_A);
+    // Switch to initial mode (This will call initNormalMode internally in each layer)
+    InputLayer::switchMode(SystemMode::NORMAL_MODE);
+    ProcessingLayer::switchMode(SystemMode::NORMAL_MODE);
 }

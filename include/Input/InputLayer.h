@@ -11,30 +11,39 @@
 
 class InputLayer {
 private:
-    static QueueHandle_t* qProcessing;
-    static ButtonHandler* btnHandler;
+    static QueueHandle_t *qProcessing;
+    static ButtonHandler *btnHandler;
     static SemaphoreHandle_t btnSemaphore;
     static SystemMode currentMode;
 
-    // Các thẻ quản lý sub-task cho Mode
-    static TaskHandle_t modeATaskHandle;
-    static TaskHandle_t modeBTaskHandle;
-    
-    static void readSensors();
+    // Task handles for separate modes
+    static TaskHandle_t task_manager_handle; // Persistent
+    static TaskHandle_t task_normal_mode_handle; // Mode specific
+    static TaskHandle_t task_accesspoint_mode_handle; // Mode specific
+
     static void handleButtonEvents();
+    static void readSensors();
 
 public:
-    static void init(QueueHandle_t* qProc);
+    // General layer init: Setup hardware and persistent tasks
+    static void init(QueueHandle_t *qProc);
+    
+    // Persistent Input Manger (Rule: handle event task)
+    static void task_manager(void *param);
 
-    // Mode A
-    static void initModeA();
-    static void taskModeALoop(void* param);
+    // Mode-specific initialization (Create tasks)
+    static void initNormalMode();
+    static void initAccessPointMode();
 
-    // Mode B
-    static void initModeB();
-    static void taskModeBLoop(void* param);
+    // Cleanup current mode tasks
+    static void deinitMode();
 
+    // Orchestrate transitions
     static void switchMode(SystemMode newMode);
+
+    // Mode specific worker tasks
+    static void task_normal_mode(void *param);
+    static void task_accesspoint_mode(void *param);
 };
 
 #endif // INPUT_LAYER_H
