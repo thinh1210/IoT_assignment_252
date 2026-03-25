@@ -1,6 +1,6 @@
 #include "TaskManager.h"
 #include "Input/InputLayer.h"
-#include "Processing/ProcessingLayer.h"
+#include "Main_FSM/Main_FSM.h"
 #include "esp_log.h"
 
 static const char *TAG = "TaskManager";
@@ -10,5 +10,5 @@ void TaskManager::initModes() {
     
     // Switch to initial mode (This will call initNormalMode internally in each layer)
     InputLayer::switchMode(SystemMode::NORMAL_MODE);
-    ProcessingLayer::switchMode(SystemMode::NORMAL_MODE);
+    Main_FSM::switchMode(SystemMode::NORMAL_MODE);
 }
