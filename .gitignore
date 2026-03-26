@@ -6,3 +6,5 @@
 .cache
 .agent
 .asset
+.venv/
+ARCHITECTURE_ANALYSIS.md
