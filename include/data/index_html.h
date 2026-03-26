@@ -36,6 +36,14 @@ const char index_html[] PROGMEM = R"rawliteral(
         <div class="gauge-card"><div id="gauge_temp"></div></div>
         <div class="gauge-card"><div id="gauge_humi"></div></div>
       </div>
+      <div class="care-card">
+        <div class="care-chip">TinyML</div>
+        <h2 id="careActionLabel">Đang chờ dữ liệu cảm biến</h2>
+        <p id="careConfidenceText">Độ tin cậy: --</p>
+        <p class="care-caption">
+          Mô hình sẽ phân loại: không cần hành động, bật quạt, hoặc cần tưới nước.
+        </p>
+      </div>
     </div>
 
     <!-- DEVICE -->

@@ -1,4 +1,5 @@
 #include "Main_FSM/Main_FSM.h"
+#include "Common/PlantCareState.h"
 #include "services/WifiService.h"
 #include "TaskManager.h"
 #include "config.h"
@@ -14,6 +15,9 @@ static const char *TAG = "MainApp";
 float globalTemp = 0.0f;
 float globalHumi = 0.0f;
 ConfigData globalConfig;
+volatile int globalPlantCareAction = 0;
+volatile float globalPlantCareConfidence = 0.0f;
+volatile bool globalPlantCareReady = false;
 
 void setup() {
   Serial.begin(115200);

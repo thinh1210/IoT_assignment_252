@@ -23,9 +23,11 @@ private:
   static TaskHandle_t task_manager_handle;
   static TaskHandle_t task_normal_mode_handle;
   static TaskHandle_t task_accesspoint_mode_handle;
+  static TaskHandle_t task_plant_care_handle;
 
   static void startManager();
   static void handleEvent(SystemEvent event);
+  static void task_plant_care(void *param);
 
 public:
   static void init(QueueHandle_t *qIn);

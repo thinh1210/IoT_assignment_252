@@ -1,5 +1,7 @@
 #include "services/ClientService.h"
+#include "Common/PlantCareState.h"
 #include "Main_FSM/Main_FSM.h"
+#include "services/PlantCareInferenceService.h"
 #include "config.h"
 #include "esp_log.h"
 
@@ -76,6 +78,16 @@ void ClientService::sendTelemetry(float temp, float humi) {
   if (!tb.connected()) return;
   tb.sendTelemetryData("temperature", temp);
   tb.sendTelemetryData("humidity", humi);
+
+  if (globalPlantCareReady) {
+    const int action = globalPlantCareAction;
+    const float confidence = globalPlantCareConfidence;
+    tb.sendTelemetryData("care_action_id", action);
+    tb.sendTelemetryData("care_action",
+                         PlantCareInferenceService::labelToString(action));
+    tb.sendTelemetryData("care_confidence", confidence);
+  }
+
   ESP_LOGD(CLI_TAG, "Telemetry sent → T=%.1f H=%.0f", temp, humi);
 }
 

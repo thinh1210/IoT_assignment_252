@@ -74,6 +74,18 @@ def require_tensorflow():
     return tf
 
 
+def ensure_tflite_keras_compat() -> None:
+    """Register tf.keras call context for TFLite on TF 2.16 + Keras 3 stacks."""
+    try:
+        from tensorflow.python.keras.engine import base_layer_utils
+        from tensorflow.python.util import keras_deps
+    except ImportError:
+        return
+
+    if keras_deps.get_call_context_function() is None:
+        keras_deps.register_call_context_function(base_layer_utils.call_context)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Collect data and train a TinyML MLP for ESP32-S3."
@@ -313,19 +325,20 @@ def build_model(seed: int):
 def representative_dataset(
     normalized_features: np.ndarray,
 ) -> Iterator[List[np.ndarray]]:
+    np = require_numpy()
     sample_count = min(len(normalized_features), 100)
     for row in normalized_features[:sample_count]:
         yield [row.reshape(1, 2).astype(np.float32)]
 
 
 def convert_to_tflite_int8(
-    keras_h5_path: Path,
+    model,
     rep_features: np.ndarray,
     tflite_path: Path,
 ) -> Dict[str, float]:
     tf = require_tensorflow()
+    ensure_tflite_keras_compat()
 
-    model = tf.keras.models.load_model(keras_h5_path)
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     converter.representative_dataset = lambda: representative_dataset(rep_features)
@@ -469,8 +482,8 @@ def train_pipeline(args: argparse.Namespace) -> None:
     tflite_path = args.out_dir / "tinyml_action_model_int8.tflite"
     summary_path = args.out_dir / "tinyml_training_summary.json"
 
+    quant_info = convert_to_tflite_int8(model, train_x, tflite_path)
     model.save(h5_path)
-    quant_info = convert_to_tflite_int8(h5_path, train_x, tflite_path)
     export_c_header(tflite_path, args.c_header, mean, std, quant_info)
 
     summary = {

@@ -31,6 +31,11 @@
 #define DHT_TYPE DHT11
 #define READ_INTERVAL 3000
 
+// Plant-care actuator mapping.
+// Set these to the relay GPIOs used for the fan/pump. Keep -1 to disable output.
+#define PLANT_CARE_FAN_RELAY_GPIO -1
+#define PLANT_CARE_PUMP_RELAY_GPIO -1
+
 // Display (OLED via U8g2)
 #define I2C_SDA 11
 #define I2C_SCL 12

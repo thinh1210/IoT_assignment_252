@@ -1,8 +1,11 @@
 #include "Main_FSM/Main_FSM.h"
+#include "Common/PlantCareState.h"
 #include "drivers/DHTSensor.h"
 #include "drivers/LedController.h"
 #include "drivers/NeonController.h"
+#include "services/ApService.h"
 #include "services/WifiService.h"
+#include "services/PlantCareInferenceService.h"
 #include "TaskManager.h"
 #include "Main_FSM/modes/NormalMode.h"
 #include "Main_FSM/modes/AccessPointMode.h"
@@ -10,11 +13,36 @@
 
 static const char *TAG = "Main_FSM";
 
+namespace {
+
+void applyPlantCareAutomation(int predictedLabel) {
+  switch (predictedLabel) {
+  case 1:
+    ApService::setRelayState(PLANT_CARE_FAN_RELAY_GPIO, true, false);
+    ApService::setRelayState(PLANT_CARE_PUMP_RELAY_GPIO, false, false);
+    break;
+
+  case 2:
+    ApService::setRelayState(PLANT_CARE_FAN_RELAY_GPIO, false, false);
+    ApService::setRelayState(PLANT_CARE_PUMP_RELAY_GPIO, true, false);
+    break;
+
+  case 0:
+  default:
+    ApService::setRelayState(PLANT_CARE_FAN_RELAY_GPIO, false, false);
+    ApService::setRelayState(PLANT_CARE_PUMP_RELAY_GPIO, false, false);
+    break;
+  }
+}
+
+} // namespace
+
 // Define static variables
 QueueHandle_t *Main_FSM::qInput = NULL;
 TaskHandle_t Main_FSM::task_manager_handle = NULL;
 TaskHandle_t Main_FSM::task_normal_mode_handle = NULL;
 TaskHandle_t Main_FSM::task_accesspoint_mode_handle = NULL;
+TaskHandle_t Main_FSM::task_plant_care_handle = NULL;
 SystemMode Main_FSM::currentMode = SystemMode::NORMAL_MODE;
 Preferences Main_FSM::preferences;
 
@@ -37,6 +65,8 @@ void Main_FSM::init(QueueHandle_t *qIn) {
 
   // Start the persistent Manager Task (Event Handler)
   Main_FSM::startManager();
+  xTaskCreate(task_plant_care, "plant_care_task", 8192, NULL, 4,
+              &task_plant_care_handle);
 
   ESP_LOGI(TAG, "Processing Layer General Init ready.");
 }
@@ -91,7 +121,15 @@ void Main_FSM::task_manager(void *param) {
  * @brief Orchestrate mode switching by suspending/resuming tasks across layers
  */
 void Main_FSM::switchMode(SystemMode newMode) {
-  if (currentMode == newMode) return;
+  if (currentMode == newMode) {
+    if (newMode == SystemMode::NORMAL_MODE && task_normal_mode_handle == NULL) {
+      initNormalMode();
+    } else if (newMode == SystemMode::ACCESSPOINT_MODE &&
+               task_accesspoint_mode_handle == NULL) {
+      initAccessPointMode();
+    }
+    return;
+  }
 
   ESP_LOGI(TAG, "Mode Transition: %s -> %s",
            (currentMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"),
@@ -133,7 +171,9 @@ void Main_FSM::handleEvent(SystemEvent event) {
   }
 
   case EventType::SENSOR_DATA_READY:
-    // Telemetry is handled in the normal worker task loop
+    if (task_plant_care_handle != NULL) {
+      xTaskNotifyGive(task_plant_care_handle);
+    }
     break;
 
   // --- WebSocket: User saved WiFi/MQTT settings → switch to WiFi mode ---
@@ -161,6 +201,39 @@ void Main_FSM::handleEvent(SystemEvent event) {
 
   default:
     break;
+  }
+}
+
+void Main_FSM::task_plant_care(void *param) {
+  if (!PlantCareInferenceService::init()) {
+    ESP_LOGE(TAG, "Plant-care inference task failed to initialize.");
+    vTaskDelete(NULL);
+    return;
+  }
+
+  ESP_LOGI(TAG, "Plant-care inference task started.");
+
+  while (1) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    const float temp = globalTemp;
+    const float humi = globalHumi;
+    int predictedLabel = 0;
+    float confidence = 0.0f;
+
+    if (!PlantCareInferenceService::predict(temp, humi, predictedLabel,
+                                            confidence)) {
+      continue;
+    }
+
+    globalPlantCareAction = predictedLabel;
+    globalPlantCareConfidence = confidence;
+    globalPlantCareReady = true;
+    applyPlantCareAutomation(predictedLabel);
+
+    ESP_LOGI(TAG, "Plant-care prediction -> %s (confidence=%.2f, T=%.1f, H=%.1f)",
+             PlantCareInferenceService::labelToString(predictedLabel),
+             confidence, temp, humi);
   }
 }
 

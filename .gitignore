@@ -7,4 +7,5 @@
 .agent
 .asset
 .venv/
+env/
 ARCHITECTURE_ANALYSIS.md

@@ -77,6 +77,37 @@ body {
   height: 260px;
   margin: 0 auto;
 }
+.care-card {
+  margin: 30px auto 0;
+  max-width: 680px;
+  background: linear-gradient(135deg, #103b5d, #1f7cc0);
+  color: white;
+  border-radius: 20px;
+  padding: 28px 32px;
+  box-shadow: 0 14px 28px rgba(16, 59, 93, 0.25);
+}
+.care-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.care-card h2 {
+  margin: 14px 0 10px;
+  font-size: 32px;
+}
+.care-card p {
+  margin: 0;
+}
+.care-caption {
+  margin-top: 12px !important;
+  color: rgba(255, 255, 255, 0.84);
+}
 .device-list {
   display: flex;
   flex-wrap: wrap;
