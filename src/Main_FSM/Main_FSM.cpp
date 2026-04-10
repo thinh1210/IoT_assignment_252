@@ -67,8 +67,7 @@ void Main_FSM::switchMode(SystemMode newMode) {
 
   ESP_LOGI(TAG, "Mode Transition: %d -> %d", (int)currentMode, (int)newMode);
 
-
-
+  
   // 2. Delegate Input Layer mode switch
   InputLayer::switchMode(newMode);
 

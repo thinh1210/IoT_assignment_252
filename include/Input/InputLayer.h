@@ -11,6 +11,10 @@
 // Can remake this layer: Can turn on and turn off the input task -> future work
 class InputLayer {
 private:
+  static QueueHandle_t *qProcessing;
+  static ButtonHandler *btnHandler;
+  static SystemMode currentMode;
+  
   // Global handles are now used directly via config.h
 
 public:

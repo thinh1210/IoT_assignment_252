@@ -7,8 +7,8 @@
 static const char *TAG = "InputLayer";
 
 // Define static variables (for the ones left)
-QueueHandle_t *qProcessing = NULL;
-ButtonHandler *btnHandler = NULL;
+QueueHandle_t *InputLayer::qProcessing = NULL;
+ButtonHandler *InputLayer::btnHandler = NULL;
 SystemMode InputLayer::currentMode = SystemMode::NORMAL_MODE;
 
 void InputLayer::init(QueueHandle_t *qProc) {
