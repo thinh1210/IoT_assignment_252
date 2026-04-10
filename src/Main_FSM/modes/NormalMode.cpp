@@ -10,6 +10,21 @@ extern float globalHumi;
 
 static const char *TAG = "NormalMode";
 
+void NormalMode::enter() {
+  ESP_LOGI(TAG, "Initializing Processing Normal Mode Worker...");
+  WifiService::startClient();
+  if (task_button_handle != NULL) vTaskResume(task_button_handle);
+  if (task_sensor_handle != NULL) vTaskResume(task_sensor_handle);
+  xTaskCreate(NormalMode::run, "proc_normal_task", 8192, NULL, 4, &task_normal_mode_handle);
+}
+
+void NormalMode::exit() {
+  if (task_normal_mode_handle != NULL) {
+    vTaskDelete(task_normal_mode_handle);
+    task_normal_mode_handle = NULL;
+  }
+}
+
 void NormalMode::run(void *param) {
   uint32_t lastTeleSend = 0;
   ESP_LOGI(TAG, "Normal Mode Sub-task: Connectivity & Telemetry started.");

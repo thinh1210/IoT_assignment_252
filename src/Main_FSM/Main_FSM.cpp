@@ -1,21 +1,18 @@
 #include "Main_FSM/Main_FSM.h"
+#include "Main_FSM/modes/AccessPointMode.h"
+#include "Main_FSM/modes/NormalMode.h"
+#include "TaskManager.h"
 #include "drivers/DHTSensor.h"
 #include "drivers/LedController.h"
 #include "drivers/NeonController.h"
-#include "services/WifiService.h"
-#include "TaskManager.h"
-#include "Main_FSM/modes/NormalMode.h"
-#include "Main_FSM/modes/AccessPointMode.h"
 #include "esp_log.h"
+#include "services/WifiService.h"
 
 static const char *TAG = "Main_FSM";
 
 // Define static variables
 QueueHandle_t *Main_FSM::qInput = NULL;
-TaskHandle_t Main_FSM::task_manager_handle = NULL;
-TaskHandle_t Main_FSM::task_normal_mode_handle = NULL;
-TaskHandle_t Main_FSM::task_accesspoint_mode_handle = NULL;
-SystemMode Main_FSM::currentMode = SystemMode::NORMAL_MODE;
+SystemMode Main_FSM::currentMode = static_cast<SystemMode>(-1); // Uninitialized
 Preferences Main_FSM::preferences;
 
 /**
@@ -32,9 +29,6 @@ void Main_FSM::init(QueueHandle_t *qIn) {
   // Initialize WiFi logic
   WifiService::init();
 
-  // Rule: State stored here
-  currentMode = SystemMode::NORMAL_MODE;
-
   // Start the persistent Manager Task (Event Handler)
   Main_FSM::startManager();
 
@@ -42,31 +36,8 @@ void Main_FSM::init(QueueHandle_t *qIn) {
 }
 
 void Main_FSM::startManager() {
-  xTaskCreate(task_manager, "system_manager", 8192, NULL, 5, &task_manager_handle);
-}
-
-void Main_FSM::initNormalMode() {
-  deinitMode();
-  ESP_LOGI(TAG, "Initializing Processing Normal Mode Worker...");
-  xTaskCreate(task_normal_mode, "proc_normal_task", 8192, NULL, 4, &task_normal_mode_handle);
-}
-
-void Main_FSM::initAccessPointMode() {
-  deinitMode();
-  ESP_LOGI(TAG, "Initializing Processing AccessPoint Mode Worker...");
-  xTaskCreate(task_accesspoint_mode, "proc_ap_task", 8192, NULL, 4, &task_accesspoint_mode_handle);
-}
-
-void Main_FSM::deinitMode() {
-  if (task_normal_mode_handle != NULL) {
-    vTaskDelete(task_normal_mode_handle);
-    task_normal_mode_handle = NULL;
-  }
-  if (task_accesspoint_mode_handle != NULL) {
-    vTaskDelete(task_accesspoint_mode_handle);
-    task_accesspoint_mode_handle = NULL;
-  }
-  ESP_LOGI(TAG, "Worker tasks deleted.");
+  xTaskCreate(task_manager, "system_manager", 8192, NULL, 5,
+              &task_sys_manager_handle);
 }
 
 /**
@@ -91,27 +62,38 @@ void Main_FSM::task_manager(void *param) {
  * @brief Orchestrate mode switching by suspending/resuming tasks across layers
  */
 void Main_FSM::switchMode(SystemMode newMode) {
-  if (currentMode == newMode) return;
+  if (currentMode == newMode)
+    return;
 
-  ESP_LOGI(TAG, "Mode Transition: %s -> %s",
-           (currentMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"),
-           (newMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"));
+  ESP_LOGI(TAG, "Mode Transition: %d -> %d", (int)currentMode, (int)newMode);
 
-  // 1. Physical/Network transition
-  if (newMode == SystemMode::ACCESSPOINT_MODE) {
-    WifiService::startAccessPoint();
-  } else {
-    WifiService::startClient();
-  }
 
-  // 2. Delegate Input Layer mode switch (which handles its own task deletion)
+
+  // 2. Delegate Input Layer mode switch
   InputLayer::switchMode(newMode);
 
-  // 3. Update own worker tasks
-  if (newMode == SystemMode::NORMAL_MODE) {
-    initNormalMode();
-  } else {
-    initAccessPointMode();
+  // 3. Delegate to Worker Modes to stop old tasks
+  switch (currentMode) {
+  case SystemMode::NORMAL_MODE:
+    NormalMode::exit();
+    break;
+  case SystemMode::ACCESSPOINT_MODE:
+    AccessPointMode::exit();
+    break;
+  default:
+    break;
+  }
+
+  // 4. Delegate to Worker Modes to start new tasks
+  switch (newMode) {
+  case SystemMode::NORMAL_MODE:
+    NormalMode::enter();
+    break;
+  case SystemMode::ACCESSPOINT_MODE:
+    AccessPointMode::enter();
+    break;
+  default:
+    break;
   }
 
   currentMode = newMode;
@@ -139,24 +121,27 @@ void Main_FSM::handleEvent(SystemEvent event) {
   // --- WebSocket: User saved WiFi/MQTT settings → switch to WiFi mode ---
   case EventType::WS_SAVE_SETTINGS: {
     ConfigData conf = getConfig();
-    conf.wifi_ssid   = event.ws_ssid;
-    conf.wifi_pass   = event.ws_pass;
-    conf.mqtt_user   = event.ws_token;
+    conf.wifi_ssid = event.ws_ssid;
+    conf.wifi_pass = event.ws_pass;
+    conf.mqtt_user = event.ws_token;
     conf.mqtt_server = event.ws_server;
-    conf.mqtt_port   = event.ws_port;
+    conf.mqtt_port = event.ws_port;
     updateConfig(conf);
-    ESP_LOGI(TAG, "WS_SAVE_SETTINGS: Config saved, switching to NORMAL mode. SSID: %s",
-             conf.wifi_ssid.c_str());
+    ESP_LOGI(
+        TAG,
+        "WS_SAVE_SETTINGS: Config saved, switching to NORMAL mode. SSID: %s",
+        conf.wifi_ssid.c_str());
     Main_FSM::switchMode(SystemMode::NORMAL_MODE);
     break;
   }
 
   // --- WebSocket: User toggled/added/deleted a relay ---
   case EventType::WS_RELAY_CMD:
-    ESP_LOGI(TAG, "WS_RELAY_CMD: action=%d gpio=%d",
-             (int)event.relay_action, event.relay_gpio);
+    ESP_LOGI(TAG, "WS_RELAY_CMD: action=%d gpio=%d", (int)event.relay_action,
+             event.relay_gpio);
     // GPIO is already handled by ApService directly.
-    // This event is available for FSM to react if needed (e.g. log, LED feedback).
+    // This event is available for FSM to react if needed (e.g. log, LED
+    // feedback).
     break;
 
   default:
@@ -166,9 +151,7 @@ void Main_FSM::handleEvent(SystemEvent event) {
 
 // --- SUB-TASKS FOR NORMAL MODE ---
 
-void Main_FSM::task_normal_mode(void *param) {
-  NormalMode::run(param);
-}
+void Main_FSM::task_normal_mode(void *param) { NormalMode::run(param); }
 
 // --- SUB-TASKS FOR ACCESSPOINT MODE ---
 

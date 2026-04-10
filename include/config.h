@@ -44,4 +44,16 @@ extern float globalHumi;
 
 extern ConfigData globalConfig;
 
+// FreeRTOS Task Handles
+extern TaskHandle_t task_sys_manager_handle;
+extern TaskHandle_t task_input_manager_handle;
+extern TaskHandle_t task_normal_mode_handle;
+extern TaskHandle_t task_ap_mode_handle;
+extern TaskHandle_t task_button_handle;
+extern TaskHandle_t task_sensor_handle;
+
+// FreeRTOS Semaphores
+extern SemaphoreHandle_t btnSemaphore;
+extern SemaphoreHandle_t sensorSemaphore;
+
 #endif // CONFIG_H

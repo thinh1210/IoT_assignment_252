@@ -15,6 +15,17 @@ float globalTemp = 0.0f;
 float globalHumi = 0.0f;
 ConfigData globalConfig;
 
+// FreeRTOS Handles Global Definitions
+TaskHandle_t task_sys_manager_handle = NULL;
+TaskHandle_t task_input_manager_handle = NULL;
+TaskHandle_t task_normal_mode_handle = NULL;
+TaskHandle_t task_ap_mode_handle = NULL;
+TaskHandle_t task_button_handle = NULL;
+TaskHandle_t task_sensor_handle = NULL;
+
+SemaphoreHandle_t btnSemaphore = NULL;
+SemaphoreHandle_t sensorSemaphore = NULL;
+
 void setup() {
   Serial.begin(115200);
   delay(2000);

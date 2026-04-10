@@ -6,16 +6,10 @@
 
 static const char *TAG = "InputLayer";
 
-// Define static variables
-QueueHandle_t *InputLayer::qProcessing = NULL;
-ButtonHandler *InputLayer::btnHandler = NULL;
-SemaphoreHandle_t InputLayer::btnSemaphore = NULL;
-SemaphoreHandle_t InputLayer::sensorSemaphore = NULL;
+// Define static variables (for the ones left)
+QueueHandle_t *qProcessing = NULL;
+ButtonHandler *btnHandler = NULL;
 SystemMode InputLayer::currentMode = SystemMode::NORMAL_MODE;
-
-TaskHandle_t InputLayer::task_manager_handle = NULL;
-TaskHandle_t InputLayer::task_button_handle = NULL;
-TaskHandle_t InputLayer::task_sensor_handle = NULL;
 
 void InputLayer::init(QueueHandle_t *qProc) {
   ESP_LOGI(TAG, "General InputLayer Initialization...");
@@ -50,7 +44,7 @@ void InputLayer::init(QueueHandle_t *qProc) {
   xTaskCreate(SensorInputService::task_sensor_poll, "sens_poll", 4096, sensorSemaphore, 4, &task_sensor_handle);
 
   // 4. Start Persistent Input Manager
-  xTaskCreate(task_manager, "input_manager", 4096, NULL, 6, &task_manager_handle);
+  xTaskCreate(task_manager, "input_manager", 4096, NULL, 6, &task_input_manager_handle);
 
   ESP_LOGI(TAG, "InputLayer General Init successful.");
 }
