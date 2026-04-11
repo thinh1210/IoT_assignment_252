@@ -179,6 +179,26 @@ bool ApService::setRelayState(int gpio, bool state, bool persistState) {
   return true;
 }
 
+bool ApService::getRelayState(int gpio, bool fallback) {
+  if (gpio <= 0) {
+    return fallback;
+  }
+
+  if (relayMutex != nullptr &&
+      xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
+    for (const auto &relay : relayList) {
+      if (relay.gpio == gpio) {
+        const bool state = relay.state;
+        xSemaphoreGive(relayMutex);
+        return state;
+      }
+    }
+    xSemaphoreGive(relayMutex);
+  }
+
+  return fallback;
+}
+
 void ApService::syncAutomationRelays() {
   if (relayMutex == nullptr ||
       xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) != pdPASS) {

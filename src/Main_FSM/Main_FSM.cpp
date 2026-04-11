@@ -276,11 +276,11 @@ void Main_FSM::loadConfig() {
   globalConfig.wifi_pass = preferences.getString("wifi_pass", WIFI_PASSWORD);
   globalConfig.mqtt_server =
       preferences.getString("mqtt_server", THINGSBOARD_SERVER);
-  globalConfig.mqtt_port = preferences.getInt("mqtt_port", 1883);
+  globalConfig.mqtt_port = preferences.getInt("mqtt_port", THINGSBOARD_PORT);
   globalConfig.mqtt_user = preferences.getString("mqtt_user", "");
   globalConfig.mqtt_pass = preferences.getString("mqtt_pass", "");
   globalConfig.key_exchange_url =
-      preferences.getString("key_url", "app.coreiot.io");
+      preferences.getString("key_url", THINGSBOARD_SERVER);
   preferences.end();
   ESP_LOGI(TAG, "Configuration loaded from flash. SSID: %s",
            globalConfig.wifi_ssid.c_str());

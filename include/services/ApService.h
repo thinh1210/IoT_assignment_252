@@ -37,6 +37,7 @@ public:
   static void loadRelays();
   static void saveRelays();
   static bool setRelayState(int gpio, bool state, bool persistState = true);
+  static bool getRelayState(int gpio, bool fallback = false);
 
   // Relay access (needed by ClientService for GPIO state restore)
   static std::vector<RelayConfig>& getRelayList();
