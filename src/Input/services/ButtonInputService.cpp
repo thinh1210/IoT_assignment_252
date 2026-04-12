@@ -13,6 +13,7 @@ void ButtonInputService::task_button_poll(void *param) {
   }
 }
 
+// co the them 1 so event de handle o day
 void ButtonInputService::handleButtonEvents(ButtonHandler *btnHandler,
                                             QueueHandle_t *qProcessing) {
   ButtonEvent lastEvt = ButtonEvent::NONE;

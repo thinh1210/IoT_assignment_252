@@ -21,7 +21,7 @@
       ]
     ],
     "mcu": "esp32s3",
-    "variant": "m5stack_atoms3"
+    "variant": "esp32s3"
   },
   "connectivity": [
     "bluetooth",

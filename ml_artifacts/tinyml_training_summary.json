@@ -1,0 +1,31 @@
+{
+  "dataset_csv": "data/tinyml_samples.csv",
+  "sample_count": 90,
+  "train_sample_count": 72,
+  "validation_sample_count": 18,
+  "train_accuracy": 1.0,
+  "validation_accuracy": 1.0,
+  "epochs_ran": 150,
+  "normalization_mean": [
+    29.130558013916016,
+    48.90277862548828
+  ],
+  "normalization_std": [
+    4.864287376403809,
+    15.323512077331543
+  ],
+  "label_mapping": {
+    "0": "No action",
+    "1": "Turn on fan",
+    "2": "Need watering"
+  },
+  "h5_model": "ml_artifacts/tinyml_action_model.h5",
+  "tflite_model": "ml_artifacts/tinyml_action_model_int8.tflite",
+  "c_header": "include/tinyml_model_data.h",
+  "quantization": {
+    "input_scale": 0.015514695085585117,
+    "input_zero_point": -6,
+    "output_scale": 0.00390625,
+    "output_zero_point": -128
+  }
+}

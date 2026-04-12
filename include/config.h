@@ -9,8 +9,18 @@
 #define WIFI_PASSWORD "cselabc5c6"
 
 // ThingsBoard / Core IOT Configuration
-#define THINGSBOARD_SERVER "app.coreiot.io" // Example server
-#define ACCESS_TOKEN "ypoy5tdtcjno0i3mgvpl"
+#define THINGSBOARD_SERVER "app.coreiot.io"
+#define THINGSBOARD_PORT 1883U
+#define ACCESS_TOKEN "dT4E1leI29Lbq1F46vHo"
+
+// OTA metadata for CoreIoT / ThingsBoard firmware updates.
+// Keep title stable for this device family and bump version on each release.
+#define COREIOT_FW_TITLE "iot_assignment_252"
+#define COREIOT_FW_VERSION "1.0.0"
+
+// CoreIoT local alert thresholds used for telemetry publishing.
+#define COREIOT_ALERT_TEMP_THRESHOLD 35.0f
+#define COREIOT_ALERT_HUMI_THRESHOLD 40.0f
 
 // define accesspoint
 #define ACCESSPOINT_SSID "ESP32"
@@ -29,6 +39,11 @@
 #define DHT11_GPIO GPIO_NUM_1
 #define DHT_TYPE DHT11
 #define READ_INTERVAL 3000
+
+// Plant-care actuator mapping.
+// Set these to the relay GPIOs used for the fan/pump. Keep -1 to disable output.
+#define PLANT_CARE_FAN_RELAY_GPIO -1
+#define PLANT_CARE_PUMP_RELAY_GPIO -1
 
 // Display (OLED via U8g2)
 #define I2C_SDA 11

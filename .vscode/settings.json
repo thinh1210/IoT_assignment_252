@@ -1,7 +1,11 @@
 {
+<<<<<<< HEAD
     "cmake.sourceDirectory": "/home/thinh/Documents/PlatformIO/Projects/IoT/.pio/libdeps/yolo_uno/Adafruit BusIO",
     "clangd.arguments": [
         "--compile-commands-dir=/home/thinh/Documents/PlatformIO/Projects/IoT",
         "--query-driver=/home/thinh/.platformio/packages/toolchain-*/bin/*,/home/thinh/.platformio/packages/tool-*/bin/*"
     ]
+=======
+    "cmake.sourceDirectory": "D:/university/Senior/IoT/IoT_assignment_252/lib/U8g2"
+>>>>>>> task5-6
 }

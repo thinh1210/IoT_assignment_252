@@ -36,6 +36,8 @@ public:
   static void broadcastRelayList();
   static void loadRelays();
   static void saveRelays();
+  static bool setRelayState(int gpio, bool state, bool persistState = true);
+  static bool getRelayState(int gpio, bool fallback = false);
 
   // Relay access (needed by ClientService for GPIO state restore)
   static std::vector<RelayConfig>& getRelayList();
@@ -52,6 +54,7 @@ private:
                         AwsEventType type, void *arg, uint8_t *data, size_t len);
   static void handleWsMessage(void *arg, uint8_t *data, size_t len);
   static void applyRelayGPIO(const RelayConfig &r);
+  static void syncAutomationRelays();
 };
 
 #endif // AP_SERVICE_H
