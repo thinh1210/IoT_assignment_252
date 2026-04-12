@@ -22,9 +22,7 @@ void InputLayer::init(QueueHandle_t *qProc) {
   btnHandler = new ButtonHandler();
   btnHandler->setSemaphore(btnSemaphore);
 
-  if (BUTTON_GPIO != -1) {
-    btnHandler->addButton(BUTTON_GPIO, 2000, true);
-  }
+
   if (BUTTON_2_GPIO != -1) {
     btnHandler->addButton(BUTTON_2_GPIO, 2000, true);
   }
@@ -42,7 +40,7 @@ void InputLayer::init(QueueHandle_t *qProc) {
   // 3. Start Sub-Tasks for continuous polling
   xTaskCreate(ButtonInputService::task_button_poll, "btn_poll", 4096, btnHandler, 5, &task_button_handle);
   xTaskCreate(SensorInputService::task_sensor_poll, "sens_poll", 4096, sensorSemaphore, 4, &task_sensor_handle);
-
+  
   // 4. Start Persistent Input Manager
   xTaskCreate(task_manager, "input_manager", 4096, NULL, 6, &task_input_manager_handle);
 

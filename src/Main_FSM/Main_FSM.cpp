@@ -2,10 +2,12 @@
 #include "Main_FSM/modes/AccessPointMode.h"
 #include "Main_FSM/modes/NormalMode.h"
 #include "TaskManager.h"
+#include "config.h"
 #include "drivers/DHTSensor.h"
 #include "drivers/LedController.h"
 #include "drivers/NeonController.h"
 #include "esp_log.h"
+#include "services/DisplayService.h"
 #include "services/WifiService.h"
 
 static const char *TAG = "Main_FSM";
@@ -67,7 +69,6 @@ void Main_FSM::switchMode(SystemMode newMode) {
 
   ESP_LOGI(TAG, "Mode Transition: %d -> %d", (int)currentMode, (int)newMode);
 
-  
   // 2. Delegate Input Layer mode switch
   InputLayer::switchMode(newMode);
 
@@ -115,6 +116,7 @@ void Main_FSM::handleEvent(SystemEvent event) {
 
   case EventType::SENSOR_DATA_READY:
     // Telemetry is handled in the normal worker task loop
+    DisplayService::showNormalMode(globalTemp, globalHumi);
     break;
 
   // --- WebSocket: User saved WiFi/MQTT settings → switch to WiFi mode ---

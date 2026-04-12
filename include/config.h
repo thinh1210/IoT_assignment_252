@@ -1,8 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <Arduino.h>
 #include "Common/ConfigData.h"
+#include <Arduino.h>
 
 // WiFi Configuration
 #define WIFI_SSID "BKIT_LUGIA_CS2"
@@ -23,7 +23,6 @@
 #define GREEN_LED_GPIO GPIO_NUM_48
 #define RED_LED_GPIO -1
 #define NEO_LED_GPIO GPIO_NUM_45
-#define BUTTON_GPIO GPIO_NUM_47
 #define BUTTON_2_GPIO GPIO_NUM_0
 
 // DHT

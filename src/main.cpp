@@ -4,6 +4,7 @@
 #include "config.h"
 #include <Arduino.h>
 #include <Preferences.h>
+#include "services/DisplayService.h"
 
 // Note: This main.cpp restores the full system logic (FSM, Tasks) 
 // The OLED library is already in drivers/ but not yet integrated here.
@@ -36,6 +37,7 @@ void setup() {
       xQueueCreate(QUEUE_SIZE, sizeof(SystemEvent));
 
   // 2. Initialize Layers
+  DisplayService::init(); // Optional but nice to initialize drivers first
   Main_FSM::init(&qInputToProcessing);
   InputLayer::init(&qInputToProcessing);
 

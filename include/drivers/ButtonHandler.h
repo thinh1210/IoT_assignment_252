@@ -40,7 +40,7 @@ struct ButtonState {
 
   ButtonState(uint8_t p, uint32_t lpMs, bool al)
       : pin(p), activeLow(al), longPressTimeMs(lpMs), debounceTimeMs(50),
-        clickTimeoutMs(200), lastReading(al ? HIGH : LOW), currentState(false),
+        clickTimeoutMs(700), lastReading(al ? HIGH : LOW), currentState(false),
         lastDebounceTime(0), pressStartTime(0), lastReleaseTime(0),
         clickCount(0), pendingClickProcess(false), isLongPressing(false),
         lastEvent(ButtonEvent::NONE) {}
