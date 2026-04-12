@@ -13,8 +13,8 @@
 static const char *TAG = "MainApp";
 
 // Global variables defined here
-float globalTemp = 0.0f;
-float globalHumi = 0.0f;
+volatile float globalTemp = 0.0f;
+volatile float globalHumi = 0.0f;
 ConfigData globalConfig;
 volatile int globalPlantCareAction = 0;
 volatile float globalPlantCareConfidence = 0.0f;

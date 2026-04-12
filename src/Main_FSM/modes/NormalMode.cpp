@@ -5,9 +5,6 @@
 #include "services/DisplayService.h"
 #include "services/WifiService.h"
 
-extern float globalTemp;
-extern float globalHumi;
-
 static const char *TAG = "NormalMode";
 
 void NormalMode::enter() {
@@ -42,7 +39,6 @@ void NormalMode::run(void *param) {
     // Periodic tasks for this mode
     if (now - lastTeleSend >= 5000) {
       WifiService::sendTelemetry(globalTemp, globalHumi);
-      WifiService::broadcastTelemetry(globalTemp, globalHumi);
       lastTeleSend = now;
     }
 

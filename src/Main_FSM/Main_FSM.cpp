@@ -1,5 +1,5 @@
 #include "Main_FSM/Main_FSM.h"
-<<<<<<< HEAD
+#include "Common/PlantCareState.h"
 #include "Main_FSM/modes/AccessPointMode.h"
 #include "Main_FSM/modes/NormalMode.h"
 #include "TaskManager.h"
@@ -7,20 +7,10 @@
 #include "drivers/DHTSensor.h"
 #include "drivers/LedController.h"
 #include "drivers/NeonController.h"
-=======
-#include "Common/PlantCareState.h"
-#include "drivers/DHTSensor.h"
-#include "drivers/LedController.h"
-#include "drivers/NeonController.h"
-#include "services/ApService.h"
-#include "services/WifiService.h"
-#include "services/PlantCareInferenceService.h"
-#include "TaskManager.h"
-#include "Main_FSM/modes/NormalMode.h"
-#include "Main_FSM/modes/AccessPointMode.h"
->>>>>>> task5-6
 #include "esp_log.h"
+#include "services/ApService.h"
 #include "services/DisplayService.h"
+#include "services/PlantCareInferenceService.h"
 #include "services/WifiService.h"
 
 static const char *TAG = "Main_FSM";
@@ -51,15 +41,11 @@ void applyPlantCareAutomation(int predictedLabel) {
 
 // Define static variables
 QueueHandle_t *Main_FSM::qInput = NULL;
-<<<<<<< HEAD
-SystemMode Main_FSM::currentMode = static_cast<SystemMode>(-1); // Uninitialized
-=======
 TaskHandle_t Main_FSM::task_manager_handle = NULL;
 TaskHandle_t Main_FSM::task_normal_mode_handle = NULL;
 TaskHandle_t Main_FSM::task_accesspoint_mode_handle = NULL;
 TaskHandle_t Main_FSM::task_plant_care_handle = NULL;
 SystemMode Main_FSM::currentMode = SystemMode::NORMAL_MODE;
->>>>>>> task5-6
 Preferences Main_FSM::preferences;
 
 /**
@@ -86,7 +72,33 @@ void Main_FSM::init(QueueHandle_t *qIn) {
 
 void Main_FSM::startManager() {
   xTaskCreate(task_manager, "system_manager", 8192, NULL, 5,
-              &task_sys_manager_handle);
+              &task_manager_handle);
+}
+
+void Main_FSM::initNormalMode() {
+  deinitMode();
+  ESP_LOGI(TAG, "Initializing Processing Normal Mode Worker...");
+  xTaskCreate(task_normal_mode, "proc_normal_task", 8192, NULL, 4,
+              &task_normal_mode_handle);
+}
+
+void Main_FSM::initAccessPointMode() {
+  deinitMode();
+  ESP_LOGI(TAG, "Initializing Processing AccessPoint Mode Worker...");
+  xTaskCreate(task_accesspoint_mode, "proc_ap_task", 8192, NULL, 4,
+              &task_accesspoint_mode_handle);
+}
+
+void Main_FSM::deinitMode() {
+  if (task_normal_mode_handle != NULL) {
+    vTaskDelete(task_normal_mode_handle);
+    task_normal_mode_handle = NULL;
+  }
+  if (task_accesspoint_mode_handle != NULL) {
+    vTaskDelete(task_accesspoint_mode_handle);
+    task_accesspoint_mode_handle = NULL;
+  }
+  ESP_LOGI(TAG, "Worker tasks deleted.");
 }
 
 /**
@@ -111,10 +123,6 @@ void Main_FSM::task_manager(void *param) {
  * @brief Orchestrate mode switching by suspending/resuming tasks across layers
  */
 void Main_FSM::switchMode(SystemMode newMode) {
-<<<<<<< HEAD
-  if (currentMode == newMode)
-    return;
-=======
   if (currentMode == newMode) {
     if (newMode == SystemMode::NORMAL_MODE && task_normal_mode_handle == NULL) {
       initNormalMode();
@@ -124,7 +132,6 @@ void Main_FSM::switchMode(SystemMode newMode) {
     }
     return;
   }
->>>>>>> task5-6
 
   ESP_LOGI(TAG, "Mode Transition: %d -> %d", (int)currentMode, (int)newMode);
 
@@ -174,14 +181,14 @@ void Main_FSM::handleEvent(SystemEvent event) {
   }
 
   case EventType::SENSOR_DATA_READY:
-<<<<<<< HEAD
-    // Telemetry is handled in the normal worker task loop
+    // 1. Refresh LCD (if applicable in Normal Mode)
     DisplayService::showNormalMode(globalTemp, globalHumi);
-=======
+    ESP_LOGD(TAG, "Sensor Data Ready (T=%.1f, H=%.1f). Triggering plant-care inference...", globalTemp, globalHumi);
+
+    // 2. Notify Inference Task immediately
     if (task_plant_care_handle != NULL) {
       xTaskNotifyGive(task_plant_care_handle);
     }
->>>>>>> task5-6
     break;
 
   // --- WebSocket: User saved WiFi/MQTT settings → switch to WiFi mode ---
@@ -225,12 +232,15 @@ void Main_FSM::task_plant_care(void *param) {
   ESP_LOGI(TAG, "Plant-care inference task started.");
 
   while (1) {
+    // Wait until SENSOR_DATA_READY event in handleEvent() calls xTaskNotifyGive()
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     const float temp = globalTemp;
     const float humi = globalHumi;
     int predictedLabel = 0;
     float confidence = 0.0f;
+
+    ESP_LOGD(TAG, "Plant-care task waking up for inference...");
 
     if (!PlantCareInferenceService::predict(temp, humi, predictedLabel,
                                             confidence)) {
@@ -242,7 +252,8 @@ void Main_FSM::task_plant_care(void *param) {
     globalPlantCareReady = true;
     applyPlantCareAutomation(predictedLabel);
 
-    ESP_LOGI(TAG, "Plant-care prediction -> %s (confidence=%.2f, T=%.1f, H=%.1f)",
+    ESP_LOGI(TAG,
+             "[AI Inference] Result: %s (conf: %.2f) based on T: %.1f, H: %.1f",
              PlantCareInferenceService::labelToString(predictedLabel),
              confidence, temp, humi);
   }

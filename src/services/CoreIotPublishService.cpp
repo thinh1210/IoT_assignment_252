@@ -8,17 +8,9 @@
 namespace {
 
 const CoreIotTelemetryKeys kDefaultTelemetryKeys = {
-    "temperature",
-    "humidity",
-    "alert_status",
-    "fan_state",
-    "pump_state",
-    "tinyml_result",
-    "tinyml_action_id",
-    "tinyml_confidence",
-    "care_action",
-    "care_action_id",
-    "care_confidence",
+    "temperature", "humidity",       "alert_status",     "fan_state",
+    "pump_state",  "tinyml_result",  "tinyml_action_id", "tinyml_confidence",
+    "care_action", "care_action_id", "care_confidence",
 };
 
 bool publishKeyValue(ThingsBoard &tb, const char *key, float value) {
@@ -46,7 +38,8 @@ CoreIotTelemetrySnapshot CoreIotPublishService::buildSnapshot(float temp,
   snapshot.humidity = humi;
   snapshot.alertStatus = (temp >= COREIOT_ALERT_TEMP_THRESHOLD) ||
                          (humi <= COREIOT_ALERT_HUMI_THRESHOLD);
-  snapshot.fanState = ApService::getRelayState(PLANT_CARE_FAN_RELAY_GPIO, false);
+  snapshot.fanState =
+      ApService::getRelayState(PLANT_CARE_FAN_RELAY_GPIO, false);
   snapshot.pumpState =
       ApService::getRelayState(PLANT_CARE_PUMP_RELAY_GPIO, false);
   snapshot.tinyMlResult = "Unknown";
@@ -73,16 +66,18 @@ bool CoreIotPublishService::publish(ThingsBoard &tb,
   success &= publishKeyValue(tb, keys.alertStatus, snapshot.alertStatus);
   success &= publishKeyValue(tb, keys.fanState, snapshot.fanState);
   success &= publishKeyValue(tb, keys.pumpState, snapshot.pumpState);
-  success &= publishKeyValue(tb, keys.tinyMlResult, snapshot.tinyMlResult.c_str());
+  success &=
+      publishKeyValue(tb, keys.tinyMlResult, snapshot.tinyMlResult.c_str());
   success &= publishKeyValue(tb, keys.tinyMlActionId, snapshot.tinyMlActionId);
-  success &= publishKeyValue(tb, keys.tinyMlConfidence, snapshot.tinyMlConfidence);
+  success &=
+      publishKeyValue(tb, keys.tinyMlConfidence, snapshot.tinyMlConfidence);
 
-  success &= publishKeyValue(tb, keys.legacyCareAction,
-                             snapshot.tinyMlResult.c_str());
-  success &= publishKeyValue(tb, keys.legacyCareActionId,
-                             snapshot.tinyMlActionId);
-  success &= publishKeyValue(tb, keys.legacyCareConfidence,
-                             snapshot.tinyMlConfidence);
+  success &=
+      publishKeyValue(tb, keys.legacyCareAction, snapshot.tinyMlResult.c_str());
+  success &=
+      publishKeyValue(tb, keys.legacyCareActionId, snapshot.tinyMlActionId);
+  success &=
+      publishKeyValue(tb, keys.legacyCareConfidence, snapshot.tinyMlConfidence);
   return success;
 }
 

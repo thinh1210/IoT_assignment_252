@@ -1,12 +1,9 @@
 #include "Main_FSM/modes/AccessPointMode.h"
+#include "config.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
-#include "services/WifiService.h"
-#include "config.h"
 #include "services/DisplayService.h"
-
-extern float globalTemp;
-extern float globalHumi;
+#include "services/WifiService.h"
 
 static const char *TAG = "AccessPointMode";
 
@@ -14,9 +11,12 @@ void AccessPointMode::enter() {
   ESP_LOGI(TAG, "Initializing Processing AccessPoint Mode Worker...");
   WifiService::startAccessPoint();
   DisplayService::showAPMode(1);
-  if (task_button_handle != NULL) vTaskResume(task_button_handle);
-  if (task_sensor_handle != NULL) vTaskSuspend(task_sensor_handle); // Don't need sensor in AP mode really
-  xTaskCreate(AccessPointMode::run, "proc_ap_task", 8192, NULL, 4, &task_ap_mode_handle);
+  if (task_button_handle != NULL)
+    vTaskResume(task_button_handle);
+  if (task_sensor_handle != NULL)
+    vTaskSuspend(task_sensor_handle); // Don't need sensor in AP mode really
+  xTaskCreate(AccessPointMode::run, "proc_ap_task", 8192, NULL, 4,
+              &task_ap_mode_handle);
 }
 
 void AccessPointMode::exit() {

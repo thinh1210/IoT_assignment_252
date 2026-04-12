@@ -32,7 +32,8 @@ struct CoreIotTelemetryKeys {
 class CoreIotPublishService {
 public:
   static CoreIotTelemetrySnapshot buildSnapshot(float temp, float humi);
-  static bool publish(ThingsBoard &tb, const CoreIotTelemetrySnapshot &snapshot);
+  static bool publish(ThingsBoard &tb,
+                      const CoreIotTelemetrySnapshot &snapshot);
   static const CoreIotTelemetryKeys &defaults();
 };
 

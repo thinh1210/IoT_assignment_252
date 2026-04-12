@@ -11,7 +11,7 @@
 // ThingsBoard / Core IOT Configuration
 #define THINGSBOARD_SERVER "app.coreiot.io"
 #define THINGSBOARD_PORT 1883U
-#define ACCESS_TOKEN "dT4E1leI29Lbq1F46vHo"
+#define ACCESS_TOKEN "ypoy5tdtcjno0i3mgvpl"
 
 // OTA metadata for CoreIoT / ThingsBoard firmware updates.
 // Keep title stable for this device family and bump version on each release.
@@ -41,7 +41,8 @@
 #define READ_INTERVAL 3000
 
 // Plant-care actuator mapping.
-// Set these to the relay GPIOs used for the fan/pump. Keep -1 to disable output.
+// Set these to the relay GPIOs used for the fan/pump. Keep -1 to disable
+// output.
 #define PLANT_CARE_FAN_RELAY_GPIO -1
 #define PLANT_CARE_PUMP_RELAY_GPIO -1
 
@@ -53,8 +54,8 @@
 #define QUEUE_SIZE 10
 
 // Global variables (External declarations)
-extern float globalTemp;
-extern float globalHumi;
+extern volatile float globalTemp;
+extern volatile float globalHumi;
 
 extern ConfigData globalConfig;
 
@@ -65,6 +66,12 @@ extern TaskHandle_t task_normal_mode_handle;
 extern TaskHandle_t task_ap_mode_handle;
 extern TaskHandle_t task_button_handle;
 extern TaskHandle_t task_sensor_handle;
+
+// Task handles for modes
+extern TaskHandle_t task_manager_handle;
+extern TaskHandle_t task_normal_mode_handle;
+extern TaskHandle_t task_accesspoint_mode_handle;
+extern TaskHandle_t task_plant_care_handle;
 
 // FreeRTOS Semaphores
 extern SemaphoreHandle_t btnSemaphore;

@@ -16,18 +16,14 @@ class Main_FSM {
 private:
   static QueueHandle_t *qInput;
   // State stored in Processing Layer (Rule: No state in WifiService)
-  static SystemMode currentMode;
-  static Preferences preferences;
-
-<<<<<<< HEAD
-=======
   // Task handles for modes
   static TaskHandle_t task_manager_handle;
   static TaskHandle_t task_normal_mode_handle;
   static TaskHandle_t task_accesspoint_mode_handle;
   static TaskHandle_t task_plant_care_handle;
+  static SystemMode currentMode;
+  static Preferences preferences;
 
->>>>>>> task5-6
   static void startManager();
   /**
    *Because there are a little of events in this project, We handleEvent in
