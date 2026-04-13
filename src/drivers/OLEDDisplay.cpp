@@ -1,5 +1,8 @@
 #include "drivers/OLEDDisplay.h"
 #include "config.h"
+#include "esp_log.h"
+
+static const char *TAG = "OLEDDisplay";
 
 OLEDDisplay::OLEDDisplay()
     : u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE, /* clock=*/I2C_SCL,
@@ -16,6 +19,7 @@ void OLEDDisplay::init() {
   u8g2.setFont(u8g2_font_haxrcorp4089_tr);
   u8g2.drawStr(0, 10, "OLED Driver Init...");
   u8g2.sendBuffer();
+  ESP_LOGI(TAG, "OLED initialized on I2C SDA=%d SCL=%d", I2C_SDA, I2C_SCL);
 }
 
 void OLEDDisplay::clear() { u8g2.clearBuffer(); }

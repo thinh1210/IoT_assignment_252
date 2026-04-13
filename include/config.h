@@ -5,12 +5,12 @@
 #include "Common/ConfigData.h"
 
 // WiFi Configuration
-#define WIFI_SSID "BKIT_LUGIA_CS2"
-#define WIFI_PASSWORD "cselabc5c6"
+#define WIFI_SSID "P425"
+#define WIFI_PASSWORD "87654321"
 
 // ThingsBoard / Core IOT Configuration
 #define THINGSBOARD_SERVER "app.coreiot.io" // Example server
-#define ACCESS_TOKEN "ypoy5tdtcjno0i3mgvpl"
+#define ACCESS_TOKEN "dT4E1leI29Lbq1F46vHo"
 
 // define accesspoint
 #define ACCESSPOINT_SSID "ESP32"
@@ -29,6 +29,10 @@
 // DHT
 #define DHT11_GPIO GPIO_NUM_1
 #define DHT_TYPE DHT11
+
+// #define DHT20_GPIO GPIO_NUM_2
+// #define DHT_TYPE DHT20
+
 #define READ_INTERVAL 3000
 
 // Display (OLED via U8g2)

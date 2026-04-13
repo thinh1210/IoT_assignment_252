@@ -26,9 +26,13 @@ private:
   static WiFiClient espClient;
   static Arduino_MQTT_Client tbClient;
   static ThingsBoard tb;
+  static bool wifiEventsRegistered;
 
   static void connectToWifi();
   static void connectToThingsBoard();
+  static void registerWifiEvents();
+  static void onWifiEvent(arduino_event_id_t event, arduino_event_info_t info);
+  static const char *wifiStatusToString(wl_status_t status);
 };
 
 #endif // CLIENT_SERVICE_H

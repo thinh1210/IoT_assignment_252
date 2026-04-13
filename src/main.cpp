@@ -1,12 +1,10 @@
 #include "Main_FSM/Main_FSM.h"
+#include "services/DisplayService.h"
 #include "services/WifiService.h"
 #include "TaskManager.h"
 #include "config.h"
 #include <Arduino.h>
 #include <Preferences.h>
-
-// Note: This main.cpp restores the full system logic (FSM, Tasks) 
-// The OLED library is already in drivers/ but not yet integrated here.
 
 static const char *TAG = "MainApp";
 
@@ -17,8 +15,8 @@ ConfigData globalConfig;
 
 void setup() {
   Serial.begin(115200);
-  delay(2000);
   ESP_LOGI(TAG, "--- Project IoT: System Architecture Restored ---");
+  delay(2000);
 
   // 1. Initialize Queue for Inter-layer communication
   static QueueHandle_t qInputToProcessing =
@@ -27,6 +25,7 @@ void setup() {
   // 2. Initialize Layers
   Main_FSM::init(&qInputToProcessing);
   InputLayer::init(&qInputToProcessing);
+  DisplayService::init();
 
   // 3. Initialize Mode Tasks (Normal & AccessPoint)
   TaskManager::initModes();

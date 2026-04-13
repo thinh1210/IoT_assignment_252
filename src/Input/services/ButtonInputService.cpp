@@ -5,6 +5,7 @@ static const char *TAG = "ButtonInputSvc";
 
 void ButtonInputService::task_button_poll(void *param) {
   ButtonHandler *handler = (ButtonHandler *)param;
+  ESP_LOGI(TAG, "Button poll task started. Poll interval = 50 ms");
   while (1) {
     if (handler != NULL) {
       handler->loop();
@@ -44,7 +45,12 @@ void ButtonInputService::handleButtonEvents(ButtonHandler *btnHandler,
     }
 
     if (qProcessing != NULL) {
-      xQueueSend(*qProcessing, &event, 0);
+      if (xQueueSend(*qProcessing, &event, 0) == pdPASS) {
+        ESP_LOGI(TAG, "Forwarded button event from BTN %d to processing queue",
+                 btnIdx);
+      } else {
+        ESP_LOGW(TAG, "Failed to queue button event from BTN %d", btnIdx);
+      }
     }
   }
 }
