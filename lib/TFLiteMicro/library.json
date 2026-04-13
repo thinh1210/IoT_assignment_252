@@ -1,0 +1,22 @@
+{
+  "name": "TFLiteMicro",
+  "version": "2.4.0-local",
+  "build": {
+    "srcFilter": [
+      "+<tensorflow/**>",
+      "+<third_party/**>",
+      "-<tensorflow/lite/experimental/**>",
+      "-<tensorflow/lite/micro/all_ops_resolver.cpp>",
+      "-<tensorflow/lite/micro/fake_micro_context.cpp>",
+      "-<tensorflow/lite/micro/mock_micro_graph.cpp>",
+      "-<tensorflow/lite/micro/micro_time.cpp>",
+      "-<tensorflow/lite/micro/test_*.cpp>",
+      "-<tensorflow/lite/micro/test_helpers.cpp>",
+      "-<tensorflow/lite/micro/test_helper_custom_ops.cpp>",
+      "-<tensorflow/lite/micro/kernels/cmsis_nn/**>",
+      "-<tensorflow/lite/micro/kernels/ethosu.cpp>",
+      "-<third_party/cmsis_nn/**>",
+      "-<third_party/kissfft/**>"
+    ]
+  }
+}

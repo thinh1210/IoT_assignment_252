@@ -1,18 +1,36 @@
 #include "services/ApService.h"
+#include "Common/PlantCareState.h"
 #include "Input/InputLayer.h"
 #include "Main_FSM/Main_FSM.h"
 #include "config.h"
 #include "data/index_html.h"
-#include "data/styles_css.h"
 #include "data/script_js.h"
+#include "data/styles_css.h"
 #include "esp_log.h"
+#include "services/PlantCareInferenceService.h"
 #include <ArduinoJson.h>
 
 static const char *AP_TAG = "ApService";
 
+namespace {
+
+constexpr const char *kFanRelayName = "Fan Relay";
+constexpr const char *kPumpRelayName = "Pump Relay";
+
+void driveRelayGPIO(int gpio, bool state) {
+  if (gpio <= 0) {
+    return;
+  }
+
+  pinMode(gpio, OUTPUT);
+  digitalWrite(gpio, state ? HIGH : LOW);
+}
+
+} // namespace
+
 // === Static member definitions ===
-AsyncWebServer  *ApService::server  = nullptr;
-AsyncWebSocket  *ApService::ws      = nullptr;
+AsyncWebServer *ApService::server = nullptr;
+AsyncWebSocket *ApService::ws = nullptr;
 std::vector<RelayConfig> ApService::relayList;
 SemaphoreHandle_t ApService::relayMutex = nullptr;
 
@@ -22,7 +40,7 @@ SemaphoreHandle_t ApService::relayMutex = nullptr;
 
 void ApService::init(AsyncWebServer *sharedServer, AsyncWebSocket *sharedWs) {
   server = sharedServer;
-  ws     = sharedWs;
+  ws = sharedWs;
 
   if (relayMutex == nullptr) {
     relayMutex = xSemaphoreCreateMutex();
@@ -65,9 +83,9 @@ void ApService::startAP() {
   WiFi.softAPConfig(local_IP, gateway, subnet);
 
   if (WiFi.softAP(ACCESSPOINT_SSID, ACCESSPOINT_PASS)) {
-    ESP_LOGI(AP_TAG, "AP Started → SSID: %s | IP: %s",
-             ACCESSPOINT_SSID, WiFi.softAPIP().toString().c_str());
-    loadRelays(); // Khôi phục relay state sau khi quay lại AP
+    ESP_LOGI(AP_TAG, "AP Started → SSID: %s | IP: %s", ACCESSPOINT_SSID,
+             WiFi.softAPIP().toString().c_str());
+    broadcastRelayList();
   } else {
     ESP_LOGE(AP_TAG, "AP Start FAILED!");
   }
@@ -89,8 +107,8 @@ void ApService::saveRelays() {
   JsonArray arr = doc.to<JsonArray>();
   for (auto &r : relayList) {
     JsonObject obj = arr.createNestedObject();
-    obj["name"]  = r.name;
-    obj["gpio"]  = r.gpio;
+    obj["name"] = r.name;
+    obj["gpio"] = r.gpio;
     obj["state"] = r.state;
   }
   String json;
@@ -106,24 +124,120 @@ void ApService::loadRelays() {
   prefs.end();
 
   DynamicJsonDocument doc(2048);
-  if (deserializeJson(doc, json) || !doc.is<JsonArray>()) return;
+  if (deserializeJson(doc, json) || !doc.is<JsonArray>())
+    return;
 
   relayList.clear();
   for (JsonObject obj : doc.as<JsonArray>()) {
     RelayConfig r;
-    r.name  = obj["name"].as<String>();
-    r.gpio  = obj["gpio"];
+    r.name = obj["name"].as<String>();
+    r.gpio = obj["gpio"];
     r.state = obj["state"];
     relayList.push_back(r);
     applyRelayGPIO(r); // Khôi phục GPIO state
   }
+  syncAutomationRelays();
   ESP_LOGI(AP_TAG, "Loaded %d relay(s) from NVS", (int)relayList.size());
 }
 
 void ApService::applyRelayGPIO(const RelayConfig &r) {
-  if (r.gpio <= 0) return;
-  pinMode(r.gpio, OUTPUT);
-  digitalWrite(r.gpio, r.state ? HIGH : LOW);
+  driveRelayGPIO(r.gpio, r.state);
+}
+
+bool ApService::setRelayState(int gpio, bool state, bool persistState) {
+  if (gpio <= 0) {
+    return false;
+  }
+
+  bool foundRelay = false;
+  bool stateChanged = false;
+
+  if (relayMutex != nullptr &&
+      xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
+    for (auto &relay : relayList) {
+      if (relay.gpio == gpio) {
+        foundRelay = true;
+        stateChanged = (relay.state != state);
+        relay.state = state;
+        break;
+      }
+    }
+
+    driveRelayGPIO(gpio, state);
+
+    if (foundRelay && stateChanged && persistState) {
+      saveRelays();
+    }
+    if (foundRelay && stateChanged) {
+      broadcastRelayList();
+    }
+
+    xSemaphoreGive(relayMutex);
+    return true;
+  }
+
+  driveRelayGPIO(gpio, state);
+  return true;
+}
+
+bool ApService::getRelayState(int gpio, bool fallback) {
+  if (gpio <= 0) {
+    return fallback;
+  }
+
+  if (relayMutex != nullptr &&
+      xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
+    for (const auto &relay : relayList) {
+      if (relay.gpio == gpio) {
+        const bool state = relay.state;
+        xSemaphoreGive(relayMutex);
+        return state;
+      }
+    }
+    xSemaphoreGive(relayMutex);
+  }
+
+  return fallback;
+}
+
+void ApService::syncAutomationRelays() {
+  if (relayMutex == nullptr ||
+      xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) != pdPASS) {
+    return;
+  }
+
+  bool changed = false;
+  const RelayConfig defaults[] = {
+      {kFanRelayName, PLANT_CARE_FAN_RELAY_GPIO, false},
+      {kPumpRelayName, PLANT_CARE_PUMP_RELAY_GPIO, false},
+  };
+
+  for (const auto &relay : defaults) {
+    if (relay.gpio <= 0) {
+      continue;
+    }
+
+    bool exists = false;
+    for (const auto &current : relayList) {
+      if (current.gpio == relay.gpio) {
+        exists = true;
+        break;
+      }
+    }
+
+    if (!exists) {
+      relayList.push_back(relay);
+      applyRelayGPIO(relay);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveRelays();
+    broadcastRelayList();
+  }
+
+  xSemaphoreGive(relayMutex);
 }
 
 // ============================================================
@@ -131,23 +245,33 @@ void ApService::applyRelayGPIO(const RelayConfig &r) {
 // ============================================================
 
 void ApService::broadcastTelemetry(float temp, float humi) {
-  if (!ws) return;
-  StaticJsonDocument<128> doc;
+  if (!ws)
+    return;
+  StaticJsonDocument<256> doc;
   doc["temp"] = serialized(String(temp, 1));
   doc["humi"] = serialized(String(humi, 0));
+
+  if (globalPlantCareReady) {
+    const int action = globalPlantCareAction;
+    doc["care_action_id"] = action;
+    doc["care_action"] = PlantCareInferenceService::labelToString(action);
+    doc["care_confidence"] = serialized(String(globalPlantCareConfidence, 2));
+  }
+
   String json;
   serializeJson(doc, json);
   ws->textAll(json);
 }
 
 void ApService::broadcastRelayList() {
-  if (!ws) return;
+  if (!ws)
+    return;
   DynamicJsonDocument doc(2048);
   JsonArray arr = doc.createNestedArray("relays");
   for (auto &r : relayList) {
     JsonObject obj = arr.createNestedObject();
-    obj["name"]  = r.name;
-    obj["gpio"]  = r.gpio;
+    obj["name"] = r.name;
+    obj["gpio"] = r.gpio;
     obj["state"] = r.state;
   }
   String json;
@@ -160,41 +284,50 @@ void ApService::broadcastRelayList() {
 // ============================================================
 
 void ApService::onWsEvent(AsyncWebSocket *s, AsyncWebSocketClient *c,
-                          AwsEventType type, void *arg, uint8_t *data, size_t len) {
+                          AwsEventType type, void *arg, uint8_t *data,
+                          size_t len) {
   switch (type) {
-    case WS_EVT_CONNECT:
-      ESP_LOGI(AP_TAG, "WS Client #%u connected", c->id());
-      broadcastRelayList();
-      break;
-    case WS_EVT_DISCONNECT:
-      ESP_LOGI(AP_TAG, "WS Client #%u disconnected", c->id());
-      break;
-    case WS_EVT_DATA:
-      handleWsMessage(arg, data, len);
-      break;
-    default: break;
+  case WS_EVT_CONNECT:
+    ESP_LOGI(AP_TAG, "WS Client #%u connected", c->id());
+    broadcastRelayList();
+    break;
+  case WS_EVT_DISCONNECT:
+    ESP_LOGI(AP_TAG, "WS Client #%u disconnected", c->id());
+    break;
+  case WS_EVT_DATA:
+    handleWsMessage(arg, data, len);
+    break;
+  default:
+    break;
   }
 }
 
 void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
-  if (!(info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)) return;
+  if (!(info->final && info->index == 0 && info->len == len &&
+        info->opcode == WS_TEXT))
+    return;
 
   DynamicJsonDocument doc(1024);
-  if (deserializeJson(doc, data, len)) return;
+  if (deserializeJson(doc, data, len))
+    return;
 
   String action = doc["action"].as<String>();
   ESP_LOGI(AP_TAG, "WS Action: %s", action.c_str());
 
   // --- ADD RELAY (xử lý cục bộ + mutex) ---
   if (action == "add_relay") {
-    int    gpio = doc["gpio"];
+    int gpio = doc["gpio"];
     String name = doc["name"].as<String>();
     if (xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
       bool exists = false;
-      for (auto &r : relayList) if (r.gpio == gpio) { exists = true; break; }
+      for (auto &r : relayList)
+        if (r.gpio == gpio) {
+          exists = true;
+          break;
+        }
       if (!exists && gpio > 0) {
-        RelayConfig nr = { name, gpio, false };
+        RelayConfig nr = {name, gpio, false};
         relayList.push_back(nr);
         applyRelayGPIO(nr);
         saveRelays();
@@ -210,7 +343,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
       xSemaphoreGive(relayMutex);
     }
 
-  // --- TOGGLE RELAY ---
+    // --- TOGGLE RELAY ---
   } else if (action == "toggle_relay") {
     int gpio = doc["gpio"];
     if (xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
@@ -231,7 +364,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
       xSemaphoreGive(relayMutex);
     }
 
-  // --- DELETE RELAY ---
+    // --- DELETE RELAY ---
   } else if (action == "delete_relay") {
     int gpio = doc["gpio"];
     if (xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
@@ -252,18 +385,20 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
       xSemaphoreGive(relayMutex);
     }
 
-  // --- SAVE SETTINGS → Trigger switch to WiFi via InputLayer → Processing ---
+    // --- SAVE SETTINGS → Trigger switch to WiFi via InputLayer → Processing
+    // ---
   } else if (action == "save_settings") {
     SystemEvent ev;
-    ev.type      = EventType::WS_SAVE_SETTINGS;
-    ev.ws_ssid   = doc["ssid"].as<String>();
-    ev.ws_pass   = doc["pass"].as<String>();
-    ev.ws_token  = doc["token"].as<String>();
+    ev.type = EventType::WS_SAVE_SETTINGS;
+    ev.ws_ssid = doc["ssid"].as<String>();
+    ev.ws_pass = doc["pass"].as<String>();
+    ev.ws_token = doc["token"].as<String>();
     ev.ws_server = doc["server"].as<String>();
-    ev.ws_port   = doc["port"] | 1883;
+    ev.ws_port = doc["port"] | 1883;
     // Đẩy vào InputLayer → Processing sẽ xử lý: updateConfig + switchMode
     InputLayer::pushEvent(ev);
-    ESP_LOGI(AP_TAG, "Save settings event forwarded to InputLayer. SSID: %s", ev.ws_ssid.c_str());
+    ESP_LOGI(AP_TAG, "Save settings event forwarded to InputLayer. SSID: %s",
+             ev.ws_ssid.c_str());
   }
 }
 
@@ -271,5 +406,5 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
 //  ACCESSORS
 // ============================================================
 
-std::vector<RelayConfig>& ApService::getRelayList() { return relayList; }
-SemaphoreHandle_t ApService::getRelayMutex()        { return relayMutex; }
+std::vector<RelayConfig> &ApService::getRelayList() { return relayList; }
+SemaphoreHandle_t ApService::getRelayMutex() { return relayMutex; }

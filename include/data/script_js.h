@@ -36,6 +36,14 @@ function onMessage(event) {
         var data = JSON.parse(event.data);
         if (data.temp !== undefined) gaugeTemp.refresh(data.temp);
         if (data.humi !== undefined) gaugeHumi.refresh(data.humi);
+        if (data.care_action !== undefined) {
+            document.getElementById('careActionLabel').textContent = data.care_action;
+        }
+        if (data.care_confidence !== undefined) {
+            var confidence = Number(data.care_confidence);
+            document.getElementById('careConfidenceText').textContent =
+                'Độ tin cậy: ' + (confidence * 100).toFixed(1) + '%';
+        }
         
         if (data.relays !== undefined) {
             relayList = data.relays;

@@ -11,10 +11,13 @@ enum class EventType {
   NONE,
   SENSOR_DATA_READY,
   BUTTON_PRESSED,
+  BUTTON_ONE,
+  BUTTON_DOUBLE,
+  BUTTON_TRIPLE,
   SYSTEM_ALERT,
   MODE_CHANGE,
-  WS_SAVE_SETTINGS,   // User submitted config form in browser (AP mode)
-  WS_RELAY_CMD,       // User toggled/added/deleted relay in browser
+  WS_SAVE_SETTINGS, // User submitted config form in browser (AP mode)
+  WS_RELAY_CMD,     // User toggled/added/deleted relay in browser
 };
 
 // Relay command sub-types
@@ -23,14 +26,14 @@ enum class RelayAction { ADD, TOGGLE, DELETE };
 // Struct to hold event
 struct SystemEvent {
   EventType type;
-  SystemMode newMode;       // For MODE_CHANGE
+  SystemMode newMode; // For MODE_CHANGE
 
   // WS_SAVE_SETTINGS payload
   String ws_ssid;
   String ws_pass;
   String ws_token;
   String ws_server;
-  int    ws_port;
+  int ws_port;
 
   // WS_RELAY_CMD payload
   RelayAction relay_action;

@@ -5,6 +5,8 @@
 
 class NormalMode {
 public:
+  static void enter();
+  static void exit();
   static void run(void *param);
 };
 

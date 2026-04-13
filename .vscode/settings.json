@@ -1,3 +1,7 @@
 {
-    "cmake.sourceDirectory": "/home/thinh/Documents/PlatformIO/Projects/IoT/.pio/libdeps/yolo_uno/Adafruit BusIO"
+    "cmake.sourceDirectory": "/home/thinh/Documents/PlatformIO/Projects/IoT/.pio/libdeps/yolo_uno/Adafruit BusIO",
+    "clangd.arguments": [
+        "--compile-commands-dir=/home/thinh/Documents/PlatformIO/Projects/IoT",
+        "--query-driver=/home/thinh/.platformio/packages/toolchain-*/bin/*,/home/thinh/.platformio/packages/tool-*/bin/*"
+    ]
 }

@@ -6,16 +6,10 @@
 
 static const char *TAG = "InputLayer";
 
-// Define static variables
+// Define static variables (for the ones left)
 QueueHandle_t *InputLayer::qProcessing = NULL;
 ButtonHandler *InputLayer::btnHandler = NULL;
-SemaphoreHandle_t InputLayer::btnSemaphore = NULL;
-SemaphoreHandle_t InputLayer::sensorSemaphore = NULL;
 SystemMode InputLayer::currentMode = SystemMode::NORMAL_MODE;
-
-TaskHandle_t InputLayer::task_manager_handle = NULL;
-TaskHandle_t InputLayer::task_button_handle = NULL;
-TaskHandle_t InputLayer::task_sensor_handle = NULL;
 
 void InputLayer::init(QueueHandle_t *qProc) {
   ESP_LOGI(TAG, "General InputLayer Initialization...");
@@ -29,9 +23,7 @@ void InputLayer::init(QueueHandle_t *qProc) {
   btnHandler = new ButtonHandler();
   btnHandler->setSemaphore(btnSemaphore);
 
-  if (BUTTON_GPIO != -1) {
-    btnHandler->addButton(BUTTON_GPIO, 2000, true);
-  }
+
   if (BUTTON_2_GPIO != -1) {
     btnHandler->addButton(BUTTON_2_GPIO, 2000, true);
   }

@@ -1,14 +1,30 @@
 #include "Main_FSM/modes/NormalMode.h"
-#include "services/WifiService.h"
 #include "config.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-extern float globalTemp;
-extern float globalHumi;
+#include "services/DisplayService.h"
+#include "services/WifiService.h"
 
 static const char *TAG = "NormalMode";
+
+void NormalMode::enter() {
+  ESP_LOGI(TAG, "Initializing Processing Normal Mode Worker...");
+  WifiService::startClient();
+  DisplayService::showNormalMode(globalTemp, globalHumi);
+  if (task_button_handle != NULL)
+    vTaskResume(task_button_handle);
+  if (task_sensor_handle != NULL)
+    vTaskResume(task_sensor_handle);
+  xTaskCreate(NormalMode::run, "proc_normal_task", 8192, NULL, 4,
+              &task_normal_mode_handle);
+}
+
+void NormalMode::exit() {
+  if (task_normal_mode_handle != NULL) {
+    vTaskDelete(task_normal_mode_handle);
+    task_normal_mode_handle = NULL;
+  }
+}
 
 void NormalMode::run(void *param) {
   uint32_t lastTeleSend = 0;
@@ -23,7 +39,6 @@ void NormalMode::run(void *param) {
     // Periodic tasks for this mode
     if (now - lastTeleSend >= 5000) {
       WifiService::sendTelemetry(globalTemp, globalHumi);
-      WifiService::broadcastTelemetry(globalTemp, globalHumi);
       lastTeleSend = now;
     }
 
