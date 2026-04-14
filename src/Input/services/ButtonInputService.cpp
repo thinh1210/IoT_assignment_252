@@ -38,7 +38,7 @@ void ButtonInputService::handleButtonEvents(ButtonHandler *btnHandler,
       break;
     }
 
-    SystemEvent event;
+    SystemEvent event{};
     if (lastEvt == ButtonEvent::LONG_PRESS) {
       event.type = EventType::MODE_CHANGE;
     } else {

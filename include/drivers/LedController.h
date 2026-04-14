@@ -9,6 +9,9 @@
 class LedController {
 public:
     static void init();
+    static void setState(bool on);
+    static void toggle();
+    static bool isOn();
     
     // Các chế độ chớp LED
     static void blink1000ms_3times();
@@ -18,6 +21,7 @@ public:
 private:
     static void blink(uint32_t delayMs, uint32_t times);
     static SemaphoreHandle_t ledMutex;
+    static bool ledState;
 };
 
 #endif // LED_CONTROLLER_H

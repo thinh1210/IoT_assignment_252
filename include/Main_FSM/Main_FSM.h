@@ -19,6 +19,7 @@ private:
   // Task handles for modes
   static TaskHandle_t task_manager_handle;
   static TaskHandle_t task_normal_mode_handle;
+  static TaskHandle_t task_manual_mode_handle;
   static TaskHandle_t task_accesspoint_mode_handle;
   static TaskHandle_t task_plant_care_handle;
   static SystemMode currentMode;
@@ -41,10 +42,12 @@ public:
 
   // Worker Loops
   static void task_normal_mode(void *param);
+  static void task_manual_mode(void *param);
   static void task_accesspoint_mode(void *param);
 
   // Mode-specific initialization (Create worker tasks)
   static void initNormalMode();
+  static void initManualMode();
   static void initAccessPointMode();
 
   // Cleanup current mode tasks

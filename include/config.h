@@ -11,16 +11,27 @@
 // ThingsBoard / Core IOT Configuration
 #define THINGSBOARD_SERVER "app.coreiot.io"
 #define THINGSBOARD_PORT 1883U
-#define ACCESS_TOKEN "ypoy5tdtcjno0i3mgvpl"
+#define ACCESS_TOKEN "oAp8JA4Xj5OUW9UwFrhh"
 
 // OTA metadata for CoreIoT / ThingsBoard firmware updates.
 // Keep title stable for this device family and bump version on each release.
 #define COREIOT_FW_TITLE "iot_assignment_252"
-#define COREIOT_FW_VERSION "1.0.0"
+#define COREIOT_FW_VERSION "1.0.2"
 
 // CoreIoT local alert thresholds used for telemetry publishing.
 #define COREIOT_ALERT_TEMP_THRESHOLD 35.0f
 #define COREIOT_ALERT_HUMI_THRESHOLD 40.0f
+
+// Environment thresholds used for LED/OLED state indication.
+#define ENV_TEMP_WARNING_THRESHOLD 30.0f
+#define ENV_TEMP_CRITICAL_THRESHOLD COREIOT_ALERT_TEMP_THRESHOLD
+#define ENV_HUMI_WARNING_LOW_THRESHOLD 45.0f
+#define ENV_HUMI_CRITICAL_LOW_THRESHOLD COREIOT_ALERT_HUMI_THRESHOLD
+#define ENV_HUMI_CRITICAL_HIGH_THRESHOLD 80.0f
+
+// Temperature bands used for LED blink frequency selection.
+#define ENV_TEMP_BLINK_LOW_THRESHOLD 24.0f
+#define ENV_TEMP_BLINK_HIGH_THRESHOLD ENV_TEMP_WARNING_THRESHOLD
 
 // define accesspoint
 #define ACCESSPOINT_SSID "ESP32"
@@ -34,6 +45,16 @@
 #define RED_LED_GPIO -1
 #define NEO_LED_GPIO GPIO_NUM_45
 #define BUTTON_2_GPIO GPIO_NUM_0
+#define IR_RECEIVER_GPIO GPIO_NUM_6
+
+// IR Remote input
+#define IR_REMOTE_ENABLE_LEARN_LOG 0
+#define IR_REMOTE_DEBOUNCE_MS 250U
+#define IR_REMOTE_CODE_MODE_NEXT 0xBA45FF00
+#define IR_REMOTE_CODE_FAN_TOGGLE 0xF30CFF00
+#define IR_REMOTE_CODE_PUMP_TOGGLE 0xE718FF00
+#define IR_REMOTE_CODE_GREEN_LED_TOGGLE 0xA15EFF00
+#define IR_REMOTE_CODE_NEO_LED_TOGGLE 0xF708FF00
 
 // DHT
 #define DHT11_GPIO GPIO_NUM_1
@@ -66,15 +87,14 @@ extern ConfigData globalConfig;
 // FreeRTOS Task Handles
 extern TaskHandle_t task_sys_manager_handle;
 extern TaskHandle_t task_input_manager_handle;
-extern TaskHandle_t task_normal_mode_handle;
-extern TaskHandle_t task_ap_mode_handle;
-extern TaskHandle_t task_button_handle;
-extern TaskHandle_t task_sensor_handle;
-
-// Task handles for modes
 extern TaskHandle_t task_manager_handle;
 extern TaskHandle_t task_normal_mode_handle;
+extern TaskHandle_t task_manual_mode_handle;
+extern TaskHandle_t task_ap_mode_handle;
 extern TaskHandle_t task_accesspoint_mode_handle;
+extern TaskHandle_t task_button_handle;
+extern TaskHandle_t task_sensor_handle;
+extern TaskHandle_t task_ir_remote_handle;
 extern TaskHandle_t task_plant_care_handle;
 
 // FreeRTOS Semaphores

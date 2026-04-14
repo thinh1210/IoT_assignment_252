@@ -2,18 +2,39 @@
 #include "drivers/DHTSensor.h"
 #include "drivers/LedController.h"
 #include "drivers/NeonController.h"
+#include "services/DisplayService.h"
+#include "services/ManualControlService.h"
 #include "services/WifiService.h"
 #include "TaskManager.h"
 #include "Main_FSM/modes/NormalMode.h"
+#include "Main_FSM/modes/ManualMode.h"
 #include "Main_FSM/modes/AccessPointMode.h"
 #include "esp_log.h"
 
 static const char *TAG = "Main_FSM";
 
+namespace {
+
+const char *modeToString(SystemMode mode) {
+  switch (mode) {
+  case SystemMode::NORMAL_MODE:
+    return "NORMAL";
+  case SystemMode::ACCESSPOINT_MODE:
+    return "ACCESSPOINT";
+  case SystemMode::MANUAL_MODE:
+    return "MANUAL";
+  default:
+    return "UNKNOWN";
+  }
+}
+
+} // namespace
+
 // Define static variables
 QueueHandle_t *Main_FSM::qInput = NULL;
 TaskHandle_t Main_FSM::task_manager_handle = NULL;
 TaskHandle_t Main_FSM::task_normal_mode_handle = NULL;
+TaskHandle_t Main_FSM::task_manual_mode_handle = NULL;
 TaskHandle_t Main_FSM::task_accesspoint_mode_handle = NULL;
 SystemMode Main_FSM::currentMode = SystemMode::NORMAL_MODE;
 Preferences Main_FSM::preferences;
@@ -27,6 +48,7 @@ void Main_FSM::init(QueueHandle_t *qIn) {
 
   LedController::init();
   NeonController::init();
+  ManualControlService::init();
   loadConfig(); // Rule: configuration belongs to processing layer
 
   // Initialize WiFi logic
@@ -51,6 +73,13 @@ void Main_FSM::initNormalMode() {
   xTaskCreate(task_normal_mode, "proc_normal_task", 8192, NULL, 4, &task_normal_mode_handle);
 }
 
+void Main_FSM::initManualMode() {
+  deinitMode();
+  ESP_LOGI(TAG, "Initializing Processing Manual Mode Worker...");
+  xTaskCreate(task_manual_mode, "proc_manual_task", 8192, NULL, 4,
+              &task_manual_mode_handle);
+}
+
 void Main_FSM::initAccessPointMode() {
   deinitMode();
   ESP_LOGI(TAG, "Initializing Processing AccessPoint Mode Worker...");
@@ -61,6 +90,10 @@ void Main_FSM::deinitMode() {
   if (task_normal_mode_handle != NULL) {
     vTaskDelete(task_normal_mode_handle);
     task_normal_mode_handle = NULL;
+  }
+  if (task_manual_mode_handle != NULL) {
+    vTaskDelete(task_manual_mode_handle);
+    task_manual_mode_handle = NULL;
   }
   if (task_accesspoint_mode_handle != NULL) {
     vTaskDelete(task_accesspoint_mode_handle);
@@ -93,15 +126,25 @@ void Main_FSM::task_manager(void *param) {
 void Main_FSM::switchMode(SystemMode newMode) {
   if (currentMode == newMode) return;
 
-  ESP_LOGI(TAG, "Mode Transition: %s -> %s",
-           (currentMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"),
-           (newMode == SystemMode::NORMAL_MODE ? "NORMAL" : "ACCESSPOINT"));
+  ESP_LOGI(TAG, "Mode Transition: %s -> %s", modeToString(currentMode),
+           modeToString(newMode));
+
+  if (currentMode == SystemMode::MANUAL_MODE &&
+      newMode != SystemMode::MANUAL_MODE) {
+    ManualControlService::exitManualMode();
+  }
 
   // 1. Physical/Network transition
   if (newMode == SystemMode::ACCESSPOINT_MODE) {
     WifiService::startAccessPoint();
+    DisplayService::showAPMode(1);
+  } else if (newMode == SystemMode::MANUAL_MODE) {
+    WifiService::startClient();
+    ManualControlService::enterManualMode();
+    DisplayService::showManualMode();
   } else {
     WifiService::startClient();
+    DisplayService::showNormalMode(globalTemp, globalHumi);
   }
 
   // 2. Delegate Input Layer mode switch (which handles its own task deletion)
@@ -110,6 +153,8 @@ void Main_FSM::switchMode(SystemMode newMode) {
   // 3. Update own worker tasks
   if (newMode == SystemMode::NORMAL_MODE) {
     initNormalMode();
+  } else if (newMode == SystemMode::MANUAL_MODE) {
+    initManualMode();
   } else {
     initAccessPointMode();
   }
@@ -120,20 +165,54 @@ void Main_FSM::switchMode(SystemMode newMode) {
 void Main_FSM::handleEvent(SystemEvent event) {
   switch (event.type) {
   case EventType::BUTTON_PRESSED:
-    ESP_LOGI(TAG, "Event: Button Pressed. Action: Change Neon color.");
-    NeonController::setNextColor();
+    ESP_LOGI(TAG, "Event: Button Pressed. doing some things");
     break;
 
   case EventType::MODE_CHANGE: {
-    SystemMode nextMode = (currentMode == SystemMode::NORMAL_MODE)
-                              ? SystemMode::ACCESSPOINT_MODE
-                              : SystemMode::NORMAL_MODE;
+    SystemMode nextMode = SystemMode::NORMAL_MODE;
+    if (currentMode == SystemMode::MANUAL_MODE) {
+      nextMode = SystemMode::NORMAL_MODE;
+    } else {
+      nextMode = (currentMode == SystemMode::NORMAL_MODE)
+                     ? SystemMode::ACCESSPOINT_MODE
+                     : SystemMode::NORMAL_MODE;
+    }
     Main_FSM::switchMode(nextMode);
     break;
   }
 
   case EventType::SENSOR_DATA_READY:
-    // Telemetry is handled in the normal worker task loop
+    NeonController::updateEnvironment(globalTemp, globalHumi);
+    break;
+
+  case EventType::IR_REMOTE_CMD:
+    if (event.remote_command == RemoteCommand::MODE_NEXT) {
+      SystemMode nextMode = SystemMode::NORMAL_MODE;
+      switch (currentMode) {
+      case SystemMode::NORMAL_MODE:
+        nextMode = SystemMode::ACCESSPOINT_MODE;
+        break;
+      case SystemMode::ACCESSPOINT_MODE:
+        nextMode = SystemMode::MANUAL_MODE;
+        break;
+      case SystemMode::MANUAL_MODE:
+      default:
+        nextMode = SystemMode::NORMAL_MODE;
+        break;
+      }
+      ESP_LOGI(TAG, "IR mode cycle requested. raw=0x%llX next=%s",
+               static_cast<unsigned long long>(event.remote_raw_code),
+               modeToString(nextMode));
+      Main_FSM::switchMode(nextMode);
+    } else if (currentMode == SystemMode::MANUAL_MODE) {
+      ESP_LOGI(TAG, "IR manual command received. raw=0x%llX cmd=%d",
+               static_cast<unsigned long long>(event.remote_raw_code),
+               static_cast<int>(event.remote_command));
+      ManualControlService::handleRemoteCommand(event.remote_command);
+    } else {
+      ESP_LOGW(TAG, "Ignoring IR actuator command outside MANUAL mode. raw=0x%llX",
+               static_cast<unsigned long long>(event.remote_raw_code));
+    }
     break;
 
   // --- WebSocket: User saved WiFi/MQTT settings → switch to WiFi mode ---
@@ -168,6 +247,10 @@ void Main_FSM::handleEvent(SystemEvent event) {
 
 void Main_FSM::task_normal_mode(void *param) {
   NormalMode::run(param);
+}
+
+void Main_FSM::task_manual_mode(void *param) {
+  ManualMode::run(param);
 }
 
 // --- SUB-TASKS FOR ACCESSPOINT MODE ---

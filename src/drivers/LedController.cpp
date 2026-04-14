@@ -5,6 +5,7 @@
 
 static const char *TAG = "LedController";
 SemaphoreHandle_t LedController::ledMutex = NULL;
+bool LedController::ledState = false;
 
 void LedController::init() {
     if (ledMutex == NULL) {
@@ -15,7 +16,35 @@ void LedController::init() {
         pinMode(GREEN_LED_GPIO, OUTPUT);
         digitalWrite(GREEN_LED_GPIO, LOW);
     }
+    ledState = false;
     ESP_LOGI(TAG, "LED Controller Initialized on GPIO %d", GREEN_LED_GPIO);
+}
+
+void LedController::setState(bool on) {
+    if (GREEN_LED_GPIO == -1 || ledMutex == NULL) return;
+
+    if (xSemaphoreTake(ledMutex, portMAX_DELAY) == pdPASS) {
+        digitalWrite(GREEN_LED_GPIO, on ? HIGH : LOW);
+        ledState = on;
+        xSemaphoreGive(ledMutex);
+    }
+}
+
+void LedController::toggle() {
+    setState(!isOn());
+}
+
+bool LedController::isOn() {
+    bool currentState = ledState;
+    if (ledMutex == NULL) {
+        return currentState;
+    }
+
+    if (xSemaphoreTake(ledMutex, pdMS_TO_TICKS(20)) == pdPASS) {
+        currentState = ledState;
+        xSemaphoreGive(ledMutex);
+    }
+    return currentState;
 }
 
 void LedController::blink(uint32_t delayMs, uint32_t times) {
@@ -26,8 +55,10 @@ void LedController::blink(uint32_t delayMs, uint32_t times) {
     if (xSemaphoreTake(ledMutex, portMAX_DELAY) == pdPASS) {
         for (uint32_t i = 0; i < times; i++) {
             digitalWrite(GREEN_LED_GPIO, HIGH);
+            ledState = true;
             vTaskDelay(pdMS_TO_TICKS(delayMs));
             digitalWrite(GREEN_LED_GPIO, LOW);
+            ledState = false;
             vTaskDelay(pdMS_TO_TICKS(delayMs));
         }
         // Trả khóa sau khi blink xong

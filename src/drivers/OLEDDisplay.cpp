@@ -26,18 +26,22 @@ void OLEDDisplay::clear() { u8g2.clearBuffer(); }
 
 void OLEDDisplay::render() { u8g2.sendBuffer(); }
 
-void OLEDDisplay::drawAPPage(int level) {
-  u8g2.setFont(u8g2_font_haxrcorp4089_tr);
-  u8g2.drawStr(35, 12, "ACCESS POINT");
+void OLEDDisplay::drawAPPage(int level, const char *statusText) {
+  u8g2.setFont(u8g2_font_5x7_tf);
+  u8g2.drawStr(0, 8, "MODE: ACCESS POINT");
+  u8g2.drawStr(0, 16, "PORTAL READY");
 
-  int cx = 64, cy = 40;
+  int cx = 64, cy = 35;
   u8g2.drawDisc(cx, cy, 2);
   for (int i = 0; i <= level; i++) {
     u8g2.drawCircle(cx, cy, 10 + i * 8,
                     U8G2_DRAW_UPPER_RIGHT | U8G2_DRAW_UPPER_LEFT);
   }
 
-  u8g2.drawStr(25, 62, "SSID: ESP32_CONFIG");
+  u8g2.setCursor(0, 54);
+  u8g2.print("SSID: ");
+  u8g2.print(ACCESSPOINT_SSID);
+  u8g2.drawStr(0, 63, statusText);
 }
 
 void OLEDDisplay::drawLoadingPage(int step) {
@@ -74,19 +78,21 @@ void OLEDDisplay::drawLoadingPage(int step) {
   u8g2.drawStr(32 + x_off, 63, "Please wait...");
 }
 
-void OLEDDisplay::drawTelemetryPage(float t, float h) {
-  u8g2.setFont(u8g2_font_haxrcorp4089_tr);
-  u8g2.drawStr(30, 10, "ENVIRONMENT");
-  u8g2.drawHLine(10, 12, 108);
+void OLEDDisplay::drawTelemetryPage(float t, float h, const char *modeText,
+                                    const char *statusText) {
+  u8g2.setFont(u8g2_font_5x7_tf);
+  u8g2.drawStr(0, 8, modeText);
+  u8g2.drawStr(0, 16, statusText);
+  u8g2.drawHLine(0, 18, 128);
 
   u8g2.setFont(u8g2_font_ncenB12_tr);
-  u8g2.setCursor(15, 35);
-  u8g2.print("Temp: ");
+  u8g2.setCursor(6, 38);
+  u8g2.print("T: ");
   u8g2.print(t, 1);
   u8g2.print(" C");
 
-  u8g2.setCursor(15, 55);
-  u8g2.print("Humi: ");
+  u8g2.setCursor(6, 58);
+  u8g2.print("H: ");
   u8g2.print(h, 0);
   u8g2.print(" %");
 }

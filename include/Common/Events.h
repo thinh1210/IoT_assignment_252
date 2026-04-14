@@ -4,7 +4,16 @@
 #include <Arduino.h>
 
 // Define system modes
-enum class SystemMode { NORMAL_MODE, ACCESSPOINT_MODE };
+enum class SystemMode { NORMAL_MODE, ACCESSPOINT_MODE, MANUAL_MODE };
+
+enum class RemoteCommand {
+  NONE,
+  MODE_NEXT,
+  FAN_TOGGLE,
+  PUMP_TOGGLE,
+  GREEN_LED_TOGGLE,
+  NEO_LED_TOGGLE,
+};
 
 // Event types for communication between Input and Processing
 enum class EventType {
@@ -16,6 +25,7 @@ enum class EventType {
   BUTTON_TRIPLE,
   SYSTEM_ALERT,
   MODE_CHANGE,
+  IR_REMOTE_CMD,
   WS_SAVE_SETTINGS, // User submitted config form in browser (AP mode)
   WS_RELAY_CMD,     // User toggled/added/deleted relay in browser
 };
@@ -39,6 +49,10 @@ struct SystemEvent {
   RelayAction relay_action;
   int relay_gpio;
   String relay_name;
+
+  // IR_REMOTE_CMD payload
+  RemoteCommand remote_command;
+  uint64_t remote_raw_code;
 };
 
 #endif // EVENTS_H

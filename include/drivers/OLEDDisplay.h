@@ -15,9 +15,10 @@ public:
   void render();
 
   // Screen Drawing Methods
-  void drawAPPage(int level);
+  void drawAPPage(int level, const char *statusText);
   void drawLoadingPage(int step);
-  void drawTelemetryPage(float t, float h);
+  void drawTelemetryPage(float t, float h, const char *modeText,
+                         const char *statusText);
   void drawSuccessPage();
 
 private:

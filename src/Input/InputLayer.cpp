@@ -1,12 +1,13 @@
 #include "Input/InputLayer.h"
 #include "drivers/DHTSensor.h"
 #include "Input/services/ButtonInputService.h"
+#include "Input/services/IrRemoteInputService.h"
 #include "Input/services/SensorInputService.h"
 #include "esp_log.h"
 
 static const char *TAG = "InputLayer";
 
-// Define static variables (for the ones left)
+// Define static variables
 QueueHandle_t *InputLayer::qProcessing = NULL;
 ButtonHandler *InputLayer::btnHandler = NULL;
 SystemMode InputLayer::currentMode = SystemMode::NORMAL_MODE;
@@ -52,6 +53,13 @@ void InputLayer::init(QueueHandle_t *qProc) {
     ESP_LOGI(TAG, "Task created: sens_poll (%p)", task_sensor_handle);
   } else {
     ESP_LOGE(TAG, "Failed to create task: sens_poll");
+  }
+
+  if (xTaskCreate(IrRemoteInputService::task_ir_remote_poll, "ir_remote_poll",
+                  6144, qProcessing, 4, &task_ir_remote_handle) == pdPASS) {
+    ESP_LOGI(TAG, "Task created: ir_remote_poll (%p)", task_ir_remote_handle);
+  } else {
+    ESP_LOGE(TAG, "Failed to create task: ir_remote_poll");
   }
 
   // 4. Start Persistent Input Manager

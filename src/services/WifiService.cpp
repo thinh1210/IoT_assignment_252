@@ -38,6 +38,8 @@ void WifiService::startClient() {
 void WifiService::toggleMode() {
   if (Main_FSM::getMode() == SystemMode::NORMAL_MODE) {
     Main_FSM::switchMode(SystemMode::ACCESSPOINT_MODE);
+  } else if (Main_FSM::getMode() == SystemMode::ACCESSPOINT_MODE) {
+    Main_FSM::switchMode(SystemMode::MANUAL_MODE);
   } else {
     Main_FSM::switchMode(SystemMode::NORMAL_MODE);
   }

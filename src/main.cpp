@@ -5,7 +5,6 @@
 #include "config.h"
 #include <Arduino.h>
 #include <Preferences.h>
-#include "services/DisplayService.h"
 
 static const char *TAG = "MainApp";
 
@@ -20,10 +19,15 @@ volatile bool globalPlantCareReady = false;
 // FreeRTOS Handles Global Definitions
 TaskHandle_t task_sys_manager_handle = NULL;
 TaskHandle_t task_input_manager_handle = NULL;
+TaskHandle_t task_manager_handle = NULL;
 TaskHandle_t task_normal_mode_handle = NULL;
+TaskHandle_t task_manual_mode_handle = NULL;
 TaskHandle_t task_ap_mode_handle = NULL;
+TaskHandle_t task_accesspoint_mode_handle = NULL;
 TaskHandle_t task_button_handle = NULL;
 TaskHandle_t task_sensor_handle = NULL;
+TaskHandle_t task_ir_remote_handle = NULL;
+TaskHandle_t task_plant_care_handle = NULL;
 
 SemaphoreHandle_t btnSemaphore = NULL;
 SemaphoreHandle_t sensorSemaphore = NULL;
@@ -38,7 +42,6 @@ void setup() {
       xQueueCreate(QUEUE_SIZE, sizeof(SystemEvent));
 
   // 2. Initialize Layers
-  DisplayService::init(); // Optional but nice to initialize drivers first
   Main_FSM::init(&qInputToProcessing);
   InputLayer::init(&qInputToProcessing);
   DisplayService::init();

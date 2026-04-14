@@ -24,7 +24,7 @@ void SensorInputService::readSensors(QueueHandle_t *qProcessing) {
     ESP_LOGI(TAG, "DHT read OK -> Temperature=%.1f C, Humidity=%.0f %%",
              temp, humi);
 
-    SystemEvent event;
+    SystemEvent event{};
     event.type = EventType::SENSOR_DATA_READY;
     if (qProcessing != NULL) {
       if (xQueueSend(*qProcessing, &event, 0) == pdPASS) {

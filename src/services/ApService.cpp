@@ -333,7 +333,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
         saveRelays();
         broadcastRelayList();
         // Thông báo cho Processing qua InputLayer
-        SystemEvent ev;
+        SystemEvent ev{};
         ev.type = EventType::WS_RELAY_CMD;
         ev.relay_action = RelayAction::ADD;
         ev.relay_gpio = gpio;
@@ -353,7 +353,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
           digitalWrite(r.gpio, r.state ? HIGH : LOW);
           saveRelays();
           broadcastRelayList();
-          SystemEvent ev;
+          SystemEvent ev{};
           ev.type = EventType::WS_RELAY_CMD;
           ev.relay_action = RelayAction::TOGGLE;
           ev.relay_gpio = gpio;
@@ -374,7 +374,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
           relayList.erase(it);
           saveRelays();
           broadcastRelayList();
-          SystemEvent ev;
+          SystemEvent ev{};
           ev.type = EventType::WS_RELAY_CMD;
           ev.relay_action = RelayAction::DELETE;
           ev.relay_gpio = gpio;
@@ -388,7 +388,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
     // --- SAVE SETTINGS → Trigger switch to WiFi via InputLayer → Processing
     // ---
   } else if (action == "save_settings") {
-    SystemEvent ev;
+    SystemEvent ev{};
     ev.type = EventType::WS_SAVE_SETTINGS;
     ev.ws_ssid = doc["ssid"].as<String>();
     ev.ws_pass = doc["pass"].as<String>();

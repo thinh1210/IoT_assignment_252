@@ -13,6 +13,8 @@ static const char *CLI_TAG = "ClientService";
 
 namespace {
 
+constexpr uint16_t kCoreIotMqttBufferSize = 256U;
+
 String resolveAccessToken(const ConfigData &conf) {
   if (!conf.mqtt_user.isEmpty()) {
     return conf.mqtt_user;
@@ -119,7 +121,8 @@ void processPendingOtaRestart(ThingsBoard &tb) {
 // === Static member definitions ===
 WiFiClient ClientService::espClient;
 Arduino_MQTT_Client ClientService::tbClient(ClientService::espClient);
-ThingsBoard ClientService::tb(ClientService::tbClient);
+ThingsBoard ClientService::tb(ClientService::tbClient,
+                              kCoreIotMqttBufferSize);
 bool ClientService::wifiEventsRegistered = false;
 
 // ============================================================
@@ -151,24 +154,15 @@ void ClientService::connectToThingsBoard() {
   const String token = resolveAccessToken(conf);
   const uint16_t port = resolvePort(conf);
 
-  ESP_LOGI(CLI_TAG, "Connecting to CoreIoT %s:%u", server.c_str(), port);
-  if (!tb.connect(server.c_str(), token.c_str(), port)) {
-    ESP_LOGE(CLI_TAG, "CoreIoT connect FAILED!");
-  ConfigData &conf = Main_FSM::getConfig();
-  const char *server = conf.mqtt_server.isEmpty() ? THINGSBOARD_SERVER
-                                                  : conf.mqtt_server.c_str();
-  const uint16_t port = conf.mqtt_port > 0 ? conf.mqtt_port : 1883;
-  String accessToken =
-      conf.mqtt_user.isEmpty() ? Main_FSM::getDeviceUID() : conf.mqtt_user;
-
   ESP_LOGI(CLI_TAG,
-           "Connecting to ThingsBoard: host=%s, port=%u, token_len=%u",
-           server, port, accessToken.length());
-  if (!tb.connect(server, accessToken.c_str(), port)) {
-    ESP_LOGE(CLI_TAG, "ThingsBoard connect FAILED! host=%s port=%u", server,
-             port);
+           "Connecting to CoreIoT: host=%s, port=%u, token_len=%u, "
+           "mqtt_buffer=%u",
+           server.c_str(), port, token.length(), tb.getClient().get_buffer_size());
+  if (!tb.connect(server.c_str(), token.c_str(), port)) {
+    ESP_LOGE(CLI_TAG, "CoreIoT connect FAILED! host=%s port=%u",
+             server.c_str(), port);
   } else {
-    ESP_LOGI(CLI_TAG, "CoreIoT connected.");
+    ESP_LOGI(CLI_TAG, "CoreIoT connected to %s:%u", server.c_str(), port);
 #if THINGSBOARD_ENABLE_OTA
     if (!setupOta(tb)) {
       ESP_LOGW(CLI_TAG, "CoreIoT OTA setup incomplete.");
@@ -222,6 +216,9 @@ void ClientService::maintainConnections() {
     } else {
       lastTBRetry = now;
       tb.loop();
+#if THINGSBOARD_ENABLE_OTA
+      processPendingOtaRestart(tb);
+#endif
     }
   }
 
@@ -239,9 +236,17 @@ void ClientService::maintainConnections() {
 
 void ClientService::sendTelemetry(float temp, float humi) {
   if (!tb.connected()) return;
-  tb.sendTelemetryData("temperature", temp);
-  tb.sendTelemetryData("humidity", humi);
-  ESP_LOGI(CLI_TAG, "Telemetry sent -> T=%.1f C, H=%.0f %%", temp, humi);
+  const CoreIotTelemetrySnapshot snapshot =
+      CoreIotPublishService::buildSnapshot(temp, humi);
+  if (CoreIotPublishService::publish(tb, snapshot)) {
+    ESP_LOGI(CLI_TAG,
+             "Telemetry sent -> T=%.1f C, H=%.0f %%, alert=%s, action=%d",
+             snapshot.temperature, snapshot.humidity,
+             snapshot.alertStatus ? "true" : "false",
+             snapshot.tinyMlActionId);
+  } else {
+    ESP_LOGW(CLI_TAG, "Telemetry publish incomplete.");
+  }
 }
 
 bool ClientService::isConnected() {
