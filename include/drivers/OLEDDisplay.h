@@ -20,11 +20,15 @@ public:
   void drawTelemetryPage(float t, float h, const char *modeText,
                          const char *statusText);
   void drawSuccessPage();
+  void playWelcomeAnimation(const char *name);
 
 private:
   OLEDDisplay();                            // Private constructor for singleton
   OLEDDisplay(const OLEDDisplay&) = delete;  // Disable copy
   void operator=(const OLEDDisplay&) = delete;
+
+  void drawWelcomeFrame(const char *name, int16_t offsetX, uint8_t accentWidth,
+                        bool invertAccent);
 
   U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2;
 };

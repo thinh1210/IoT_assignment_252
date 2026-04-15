@@ -2,6 +2,7 @@
 #include "services/DisplayService.h"
 #include "services/WifiService.h"
 #include "TaskManager.h"
+#include "Common/AppLog.h"
 #include "config.h"
 #include <Arduino.h>
 #include <Preferences.h>
@@ -34,8 +35,10 @@ SemaphoreHandle_t sensorSemaphore = NULL;
 
 void setup() {
   Serial.begin(115200);
+  AppLog::init();
+  ESP_LOGI(TAG, "USB CDC ready");
   ESP_LOGI(TAG, "--- Project IoT: System Architecture Restored ---");
-  delay(2000);
+  delay(200);
 
   // 1. Initialize Queue for Inter-layer communication
   static QueueHandle_t qInputToProcessing =

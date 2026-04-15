@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#include "Common/AppLog.h"
 #include "tensorflow/lite/c/builtin_op_data.h"
 #include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/kernels/internal/reference/fully_connected.h"
@@ -12,7 +13,7 @@
 #include "tensorflow/lite/micro/micro_log.h"
 
 extern "C" void DebugLog(const char *message) {
-  Serial.print(message);
+  AppLog::writeRaw(message);
 }
 
 namespace {

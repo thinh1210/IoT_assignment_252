@@ -2,7 +2,7 @@
 #include "Main_FSM/Main_FSM.h"
 #include "services/CoreIotPublishService.h"
 #include "config.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 
 #if THINGSBOARD_ENABLE_OTA
 #include <Arduino_ESP32_Updater.h>
@@ -49,6 +49,13 @@ bool gOtaSubscriptionReady = false;
 bool gOtaRestartPending = false;
 bool gOtaUpdatedStateSent = false;
 uint32_t gOtaRestartRequestedAt = 0U;
+uint32_t gOtaSetupAttempts = 0U;
+uint32_t gOtaMetadataRequests = 0U;
+
+void logOtaConfiguration() {
+  ESP_LOGI(CLI_TAG, "OTA enabled. fw_title=%s fw_version=%s",
+           COREIOT_FW_TITLE, COREIOT_FW_VERSION);
+}
 
 void handleOtaProgress(const size_t &current, const size_t &total) {
   ESP_LOGI(CLI_TAG, "OTA progress: %u/%u", static_cast<unsigned>(current),
@@ -79,18 +86,29 @@ OTA_Update_Callback &getOtaCallback() {
 bool setupOta(ThingsBoard &tb) {
   OTA_Update_Callback &callback = getOtaCallback();
   bool ok = true;
+  ++gOtaSetupAttempts;
+
+  ESP_LOGI(CLI_TAG, "OTA setup attempt #%u started.",
+           static_cast<unsigned>(gOtaSetupAttempts));
 
   if (!gOtaSubscriptionReady) {
     gOtaSubscriptionReady = tb.Subscribe_Firmware_Update(callback);
     if (!gOtaSubscriptionReady) {
       ESP_LOGE(CLI_TAG, "Failed to subscribe for OTA update notifications.");
       ok = false;
+    } else {
+      ESP_LOGI(CLI_TAG, "OTA shared-attribute subscription ready.");
     }
   }
 
+  ++gOtaMetadataRequests;
   if (!tb.Start_Firmware_Update(callback)) {
     ESP_LOGE(CLI_TAG, "Failed to request current OTA firmware metadata.");
     ok = false;
+  } else {
+    ESP_LOGI(CLI_TAG,
+             "OTA metadata request #%u sent. Waiting for firmware attributes.",
+             static_cast<unsigned>(gOtaMetadataRequests));
   }
 
   return ok;
@@ -164,8 +182,12 @@ void ClientService::connectToThingsBoard() {
   } else {
     ESP_LOGI(CLI_TAG, "CoreIoT connected to %s:%u", server.c_str(), port);
 #if THINGSBOARD_ENABLE_OTA
+    gOtaSubscriptionReady = false;
+    logOtaConfiguration();
     if (!setupOta(tb)) {
       ESP_LOGW(CLI_TAG, "CoreIoT OTA setup incomplete.");
+    } else {
+      ESP_LOGI(CLI_TAG, "CoreIoT OTA setup complete.");
     }
 #endif
   }
@@ -196,6 +218,12 @@ void ClientService::maintainConnections() {
     ESP_LOGI(CLI_TAG, "ThingsBoard state changed: %s -> %s",
              lastTbConnected ? "CONNECTED" : "DISCONNECTED",
              tbConnected ? "CONNECTED" : "DISCONNECTED");
+#if THINGSBOARD_ENABLE_OTA
+    if (!tbConnected) {
+      gOtaSubscriptionReady = false;
+      ESP_LOGI(CLI_TAG, "OTA subscription state reset after MQTT disconnect.");
+    }
+#endif
     lastTbConnected = tbConnected;
   }
 

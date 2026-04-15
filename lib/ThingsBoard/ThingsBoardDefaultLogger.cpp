@@ -1,5 +1,6 @@
 // Header include.
 #include "ThingsBoardDefaultLogger.h"
+#include "../../include/Common/AppLog.h"
 
 // Local includes.
 #include "Configuration.h"
@@ -9,6 +10,7 @@
 #include <WString.h>
 #endif // THINGSBOARD_ENABLE_PROGMEM
 #include <stdio.h>
+#include <string.h>
 
 
 // Log messages.
@@ -20,5 +22,7 @@ constexpr char LOG_MESSAGE_FORMAT[] = "[TB] %s\n";
 
 
 void ThingsBoardDefaultLogger::log(const char *msg) {
-    printf(LOG_MESSAGE_FORMAT, msg);
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), LOG_MESSAGE_FORMAT, msg != nullptr ? msg : "");
+    AppLog::writeRaw(buffer);
 }

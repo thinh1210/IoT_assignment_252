@@ -1,6 +1,6 @@
 #include "drivers/DHTSensor.h"
 #include <DHT.h>
-#include "esp_log.h"
+#include "Common/AppLog.h"
 
 static const char *TAG = "DHTSensor";
 

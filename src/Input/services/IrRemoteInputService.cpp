@@ -1,7 +1,7 @@
 #include "Input/services/IrRemoteInputService.h"
 
 #include "config.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 
 #define NO_LED_RECEIVE_FEEDBACK_CODE
 #include <IRremote.hpp>

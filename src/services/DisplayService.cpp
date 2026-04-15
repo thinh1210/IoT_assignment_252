@@ -1,7 +1,7 @@
 #include "services/DisplayService.h"
 #include "drivers/OLEDDisplay.h"
 #include "config.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 #include "services/ManualControlService.h"
 
 static const char *TAG = "DisplayService";
@@ -53,6 +53,7 @@ void DisplayService::init() {
   if (task_display_handle != NULL) return;
 
   OLEDDisplay::getInstance().init();
+  OLEDDisplay::getInstance().playWelcomeAnimation("Khoa");
   xTaskCreate(task_display_loop, "oled_display", 4096, NULL, 3,
               &task_display_handle);
   ESP_LOGI(TAG, "OLED display task started.");

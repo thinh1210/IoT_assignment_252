@@ -16,7 +16,7 @@
 // OTA metadata for CoreIoT / ThingsBoard firmware updates.
 // Keep title stable for this device family and bump version on each release.
 #define COREIOT_FW_TITLE "iot_assignment_252"
-#define COREIOT_FW_VERSION "1.0.2"
+#define COREIOT_FW_VERSION "1.4.0"
 
 // CoreIoT local alert thresholds used for telemetry publishing.
 #define COREIOT_ALERT_TEMP_THRESHOLD 35.0f
@@ -66,10 +66,13 @@
 #define READ_INTERVAL 3000
 
 // Plant-care actuator mapping.
-// Set these to the relay GPIOs used for the fan/pump. Keep -1 to disable
-// output.
-#define PLANT_CARE_FAN_RELAY_GPIO -1
+// Fan output is driven by PWM when configured. Pump stays digital on/off.
+#define PLANT_CARE_FAN_RELAY_GPIO GPIO_NUM_21
 #define PLANT_CARE_PUMP_RELAY_GPIO -1
+#define PLANT_CARE_FAN_PWM_CHANNEL 0
+#define PLANT_CARE_FAN_PWM_FREQ 25000U
+#define PLANT_CARE_FAN_PWM_RESOLUTION 8
+#define PLANT_CARE_FAN_PWM_DUTY_ON 255U
 
 // Display (OLED via U8g2)
 #define I2C_SDA 11

@@ -3,7 +3,7 @@
 #include "Input/services/ButtonInputService.h"
 #include "Input/services/IrRemoteInputService.h"
 #include "Input/services/SensorInputService.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 
 static const char *TAG = "InputLayer";
 

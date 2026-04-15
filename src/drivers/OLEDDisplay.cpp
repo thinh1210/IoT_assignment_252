@@ -1,6 +1,6 @@
 #include "drivers/OLEDDisplay.h"
 #include "config.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 
 static const char *TAG = "OLEDDisplay";
 
@@ -104,4 +104,61 @@ void OLEDDisplay::drawSuccessPage() {
 
   u8g2.setFont(u8g2_font_ncenB12_tr);
   u8g2.drawStr(15 + x_off, 62, "UPDATE OK!");
+}
+
+void OLEDDisplay::playWelcomeAnimation(const char *name) {
+  const char *resolvedName =
+      (name != nullptr && name[0] != '\0') ? name : "Khoa";
+
+  for (int16_t offsetX = -96; offsetX <= 0; offsetX += 8) {
+    drawWelcomeFrame(resolvedName, offsetX, 18, false);
+    render();
+    delay(40);
+  }
+
+  for (uint8_t accentWidth = 22; accentWidth <= 82; accentWidth += 12) {
+    drawWelcomeFrame(resolvedName, 0, accentWidth, false);
+    render();
+    delay(55);
+  }
+
+  for (uint8_t pulse = 0; pulse < 4; ++pulse) {
+    drawWelcomeFrame(resolvedName, 0, 82, (pulse % 2U) == 0U);
+    render();
+    delay(120);
+  }
+
+  drawWelcomeFrame(resolvedName, 0, 82, false);
+  render();
+  delay(700);
+}
+
+void OLEDDisplay::drawWelcomeFrame(const char *name, int16_t offsetX,
+                                   uint8_t accentWidth, bool invertAccent) {
+  const int16_t baseX = 18 + offsetX;
+  const int16_t cardX = 8;
+  const int16_t cardY = 6;
+  const uint8_t cardW = 112;
+  const uint8_t cardH = 52;
+
+  clear();
+  u8g2.drawRFrame(cardX, cardY, cardW, cardH, 6);
+  u8g2.drawRFrame(cardX + 2, cardY + 2, cardW - 4, cardH - 4, 5);
+
+  if (invertAccent) {
+    u8g2.drawBox(23, 47, accentWidth, 4);
+  } else {
+    u8g2.drawRBox(23, 47, accentWidth, 4, 2);
+  }
+
+  u8g2.setFont(u8g2_font_5x7_tf);
+  u8g2.drawStr(baseX, 20, "chao");
+
+  u8g2.setFont(u8g2_font_ncenB12_tr);
+  u8g2.drawStr(baseX, 42, name);
+
+  u8g2.setFont(u8g2_font_5x7_tf);
+  u8g2.drawStr(89, 20, "*");
+  u8g2.drawStr(98, 28, "*");
+  u8g2.drawStr(84, 34, "*");
 }

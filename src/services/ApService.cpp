@@ -6,7 +6,7 @@
 #include "data/index_html.h"
 #include "data/script_js.h"
 #include "data/styles_css.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 #include "services/PlantCareInferenceService.h"
 #include <ArduinoJson.h>
 
@@ -14,11 +14,44 @@ static const char *AP_TAG = "ApService";
 
 namespace {
 
-constexpr const char *kFanRelayName = "Fan Relay";
+constexpr const char *kFanRelayName = "Fan PWM";
 constexpr const char *kPumpRelayName = "Pump Relay";
+bool gFanPwmConfigured = false;
+
+void configureFanPwmIfNeeded() {
+  if (gFanPwmConfigured || PLANT_CARE_FAN_RELAY_GPIO <= 0) {
+    return;
+  }
+
+  ledcSetup(PLANT_CARE_FAN_PWM_CHANNEL, PLANT_CARE_FAN_PWM_FREQ,
+            PLANT_CARE_FAN_PWM_RESOLUTION);
+  ledcAttachPin(PLANT_CARE_FAN_RELAY_GPIO, PLANT_CARE_FAN_PWM_CHANNEL);
+  ledcWrite(PLANT_CARE_FAN_PWM_CHANNEL, 0);
+  gFanPwmConfigured = true;
+
+  ESP_LOGI(AP_TAG,
+           "Fan PWM configured on GPIO %d -> channel=%u freq=%uHz res=%ubit duty_on=%u",
+           PLANT_CARE_FAN_RELAY_GPIO, PLANT_CARE_FAN_PWM_CHANNEL,
+           PLANT_CARE_FAN_PWM_FREQ, PLANT_CARE_FAN_PWM_RESOLUTION,
+           PLANT_CARE_FAN_PWM_DUTY_ON);
+}
 
 void driveRelayGPIO(int gpio, bool state) {
   if (gpio <= 0) {
+    return;
+  }
+
+  if (gpio == PLANT_CARE_FAN_RELAY_GPIO) {
+    if (!gFanPwmConfigured && !state) {
+      pinMode(gpio, OUTPUT);
+      digitalWrite(gpio, LOW);
+      return;
+    }
+
+    configureFanPwmIfNeeded();
+    ledcWrite(PLANT_CARE_FAN_PWM_CHANNEL, state ? PLANT_CARE_FAN_PWM_DUTY_ON : 0);
+    ESP_LOGI(AP_TAG, "Fan PWM output -> %s (duty=%u)", state ? "ON" : "OFF",
+             state ? PLANT_CARE_FAN_PWM_DUTY_ON : 0U);
     return;
   }
 
@@ -350,7 +383,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
       for (auto &r : relayList) {
         if (r.gpio == gpio) {
           r.state = !r.state;
-          digitalWrite(r.gpio, r.state ? HIGH : LOW);
+          applyRelayGPIO(r);
           saveRelays();
           broadcastRelayList();
           SystemEvent ev{};
@@ -370,7 +403,7 @@ void ApService::handleWsMessage(void *arg, uint8_t *data, size_t len) {
     if (xSemaphoreTake(relayMutex, pdMS_TO_TICKS(200)) == pdPASS) {
       for (auto it = relayList.begin(); it != relayList.end(); ++it) {
         if (it->gpio == gpio) {
-          digitalWrite(gpio, LOW);
+          driveRelayGPIO(gpio, false);
           relayList.erase(it);
           saveRelays();
           broadcastRelayList();

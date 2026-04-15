@@ -1,7 +1,7 @@
 #include "Input/services/SensorInputService.h"
 #include "drivers/DHTSensor.h"
 #include "config.h"
-#include "esp_log.h"
+#include "Common/AppLog.h"
 
 static const char *TAG = "SensorInputSvc";
 

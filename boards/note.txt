@@ -1,7 +1,7 @@
 Green LED GPIO 48
 RED lED
 NEO LED GPIO 45
-Button GPIO 
+Button GPIO 9 (D6 on Yolo Uno)
 Làm theo yêu cầu đề trước
 
 Todo list:
