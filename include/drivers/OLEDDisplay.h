@@ -15,10 +15,10 @@ public:
   void render();
 
   // Screen Drawing Methods
-  void drawAPPage(int level, const char *statusText);
+  void drawAPPage(int level, const char *statusText, const char *careText);
   void drawLoadingPage(int step);
   void drawTelemetryPage(float t, float h, const char *modeText,
-                         const char *statusText);
+                         const char *statusText, const char *careText);
   void drawSuccessPage();
   void playWelcomeAnimation(const char *name);
 

@@ -8,6 +8,7 @@
 #include "data/styles_css.h"
 #include "Common/AppLog.h"
 #include "services/PlantCareInferenceService.h"
+#include "services/PlantCareRuntimeService.h"
 #include <ArduinoJson.h>
 
 static const char *AP_TAG = "ApService";
@@ -283,13 +284,14 @@ void ApService::broadcastTelemetry(float temp, float humi) {
   StaticJsonDocument<256> doc;
   doc["temp"] = serialized(String(temp, 1));
   doc["humi"] = serialized(String(humi, 0));
-
-  if (globalPlantCareReady) {
-    const int action = globalPlantCareAction;
-    doc["care_action_id"] = action;
-    doc["care_action"] = PlantCareInferenceService::labelToString(action);
-    doc["care_confidence"] = serialized(String(globalPlantCareConfidence, 2));
-  }
+  const PlantCareSnapshot plantCare = PlantCareRuntimeService::getSnapshot();
+  doc["care_action_id"] = plantCare.ready ? plantCare.action : -1;
+  doc["care_action"] = plantCare.ready
+                           ? PlantCareInferenceService::labelToString(
+                                 plantCare.action)
+                           : "Dang cho du lieu";
+  doc["care_confidence"] =
+      serialized(String(plantCare.ready ? plantCare.confidence : 0.0f, 2));
 
   String json;
   serializeJson(doc, json);

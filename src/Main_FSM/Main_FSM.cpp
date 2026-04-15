@@ -10,6 +10,7 @@
 #include "Main_FSM/modes/ManualMode.h"
 #include "Main_FSM/modes/AccessPointMode.h"
 #include "Common/AppLog.h"
+#include "services/PlantCareRuntimeService.h"
 
 static const char *TAG = "Main_FSM";
 
@@ -160,6 +161,7 @@ void Main_FSM::switchMode(SystemMode newMode) {
   }
 
   currentMode = newMode;
+  PlantCareRuntimeService::syncAutomationForMode(newMode);
 }
 
 void Main_FSM::handleEvent(SystemEvent event) {

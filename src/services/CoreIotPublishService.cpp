@@ -4,6 +4,7 @@
 #include "config.h"
 #include "services/ApService.h"
 #include "services/PlantCareInferenceService.h"
+#include "services/PlantCareRuntimeService.h"
 
 namespace {
 
@@ -46,11 +47,12 @@ CoreIotTelemetrySnapshot CoreIotPublishService::buildSnapshot(float temp,
   snapshot.tinyMlActionId = -1;
   snapshot.tinyMlConfidence = 0.0f;
 
-  if (globalPlantCareReady) {
-    snapshot.tinyMlActionId = globalPlantCareAction;
-    snapshot.tinyMlConfidence = globalPlantCareConfidence;
+  const PlantCareSnapshot plantCare = PlantCareRuntimeService::getSnapshot();
+  if (plantCare.ready) {
+    snapshot.tinyMlActionId = plantCare.action;
+    snapshot.tinyMlConfidence = plantCare.confidence;
     snapshot.tinyMlResult =
-        PlantCareInferenceService::labelToString(globalPlantCareAction);
+        PlantCareInferenceService::labelToString(plantCare.action);
   }
 
   return snapshot;

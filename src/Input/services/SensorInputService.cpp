@@ -2,6 +2,7 @@
 #include "drivers/DHTSensor.h"
 #include "config.h"
 #include "Common/AppLog.h"
+#include "services/PlantCareRuntimeService.h"
 
 static const char *TAG = "SensorInputSvc";
 
@@ -23,6 +24,7 @@ void SensorInputService::readSensors(QueueHandle_t *qProcessing) {
     globalHumi = humi;
     ESP_LOGI(TAG, "DHT read OK -> Temperature=%.1f C, Humidity=%.0f %%",
              temp, humi);
+    PlantCareRuntimeService::updateFromSensor(temp, humi);
 
     SystemEvent event{};
     event.type = EventType::SENSOR_DATA_READY;

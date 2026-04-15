@@ -2,6 +2,7 @@
 #include "drivers/OLEDDisplay.h"
 #include "config.h"
 #include "Common/AppLog.h"
+#include "services/PlantCareRuntimeService.h"
 #include "services/ManualControlService.h"
 
 static const char *TAG = "DisplayService";
@@ -87,16 +88,20 @@ void DisplayService::task_display_loop(void *param) {
     const float humi = globalHumi;
     const DisplayView view = currentView;
     char manualStatus[24] = {0};
+    char careStatus[20] = {0};
     const char *statusText = resolveStatusText(temp, humi);
+    PlantCareRuntimeService::formatDisplayLine(careStatus, sizeof(careStatus));
 
     display.clear();
     if (view == DisplayView::AP) {
-      display.drawAPPage(apSignalLevel, statusText);
+      display.drawAPPage(apSignalLevel, statusText, careStatus);
     } else if (view == DisplayView::MANUAL) {
       ManualControlService::formatStatusLine(manualStatus, sizeof(manualStatus));
-      display.drawTelemetryPage(temp, humi, "MODE: MANUAL", manualStatus);
+      display.drawTelemetryPage(temp, humi, "MODE: MANUAL", manualStatus,
+                                careStatus);
     } else {
-      display.drawTelemetryPage(temp, humi, "MODE: NORMAL", statusText);
+      display.drawTelemetryPage(temp, humi, "MODE: NORMAL", statusText,
+                                careStatus);
     }
     display.render();
     renderCount++;

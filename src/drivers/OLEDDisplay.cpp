@@ -26,7 +26,8 @@ void OLEDDisplay::clear() { u8g2.clearBuffer(); }
 
 void OLEDDisplay::render() { u8g2.sendBuffer(); }
 
-void OLEDDisplay::drawAPPage(int level, const char *statusText) {
+void OLEDDisplay::drawAPPage(int level, const char *statusText,
+                             const char *careText) {
   u8g2.setFont(u8g2_font_5x7_tf);
   u8g2.drawStr(0, 8, "MODE: ACCESS POINT");
   u8g2.drawStr(0, 16, "PORTAL READY");
@@ -41,7 +42,8 @@ void OLEDDisplay::drawAPPage(int level, const char *statusText) {
   u8g2.setCursor(0, 54);
   u8g2.print("SSID: ");
   u8g2.print(ACCESSPOINT_SSID);
-  u8g2.drawStr(0, 63, statusText);
+  u8g2.drawStr(0, 56, statusText);
+  u8g2.drawStr(0, 63, careText);
 }
 
 void OLEDDisplay::drawLoadingPage(int step) {
@@ -79,7 +81,8 @@ void OLEDDisplay::drawLoadingPage(int step) {
 }
 
 void OLEDDisplay::drawTelemetryPage(float t, float h, const char *modeText,
-                                    const char *statusText) {
+                                    const char *statusText,
+                                    const char *careText) {
   u8g2.setFont(u8g2_font_5x7_tf);
   u8g2.drawStr(0, 8, modeText);
   u8g2.drawStr(0, 16, statusText);
@@ -95,6 +98,9 @@ void OLEDDisplay::drawTelemetryPage(float t, float h, const char *modeText,
   u8g2.print("H: ");
   u8g2.print(h, 0);
   u8g2.print(" %");
+
+  u8g2.setFont(u8g2_font_5x7_tf);
+  u8g2.drawStr(50, 63, careText);
 }
 
 void OLEDDisplay::drawSuccessPage() {
