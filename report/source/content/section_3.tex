@@ -1,5 +1,134 @@
 \section{Implementation Highlights}
 
+\subsection{System Architecture Overview}
+Firmware được tổ chức theo kiến trúc phân lớp kết hợp FreeRTOS task-based runtime. Mục tiêu của cách tổ chức này là tách phần đọc input, điều phối mode, dịch vụ hệ thống và driver phần cứng để giảm coupling, giúp mở rộng thêm TinyML, AP web dashboard và CoreIOT mà không phải dồn toàn bộ logic vào một vòng lặp đơn.
+
+\clearpage
+\begin{landscape}
+\begin{figure}[p]
+    \centering
+    \vspace*{\fill}
+    \includegraphics[width=0.97\linewidth,height=0.88\textheight,keepaspectratio]{source/content/Architecture.png}
+    \caption{Sơ đồ kiến trúc tổng thể của hệ thống ESP32-S3 IoT plant-care}
+    \label{fig:system-architecture}
+    \vspace*{\fill}
+\end{figure}
+\end{landscape}
+\clearpage
+
+\textbf{Boot sequence của hệ thống}
+\begin{enumerate}
+    \item Trong \texttt{main.cpp}, hệ thống khởi tạo USB CDC logging và tạo queue trung tâm \texttt{qInputToProcessing}.
+    \item \texttt{Main\_FSM::init()} khởi tạo driver output, manual control, config runtime và WifiService facade.
+    \item \texttt{InputLayer::init()} khởi tạo button, DHT11, IR receiver, semaphore và các polling task.
+    \item \texttt{DisplayService::init()} khởi động OLED, phát welcome animation và tạo task render nền.
+    \item \texttt{TaskManager::initModes()} đưa toàn hệ thống vào \texttt{NORMAL\_MODE} ngay sau cold boot.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|p{2.6cm}|p{4.8cm}|p{7.0cm}|}
+\hline
+\textbf{Lớp / khối} & \textbf{Module chính} & \textbf{Vai trò} \\
+\hline
+Bootstrap / startup & \texttt{main.cpp}, \texttt{TaskManager} & Tạo queue trung tâm, khởi tạo các subsystem lõi, chọn mode khởi động và tạo các worker task ban đầu. \\
+\hline
+Input Layer & \texttt{InputLayer}, \texttt{ButtonInputService}, \texttt{SensorInputService}, \texttt{IrRemoteInputService} & Thu nhận nút nhấn, IR command và dữ liệu cảm biến; chuyển input thô thành \texttt{SystemEvent} đẩy sang FSM. \\
+\hline
+Processing / orchestration & \texttt{Main\_FSM} và các mode worker \texttt{NormalMode}, \texttt{AccessPointMode}, \texttt{ManualMode} & Điều phối mode, xử lý event, kích hoạt đúng logic mạng/hiển thị/automation theo ngữ cảnh vận hành. \\
+\hline
+Service Layer & \texttt{WifiService}, \texttt{ClientService}, \texttt{ApService}, \texttt{DisplayService}, \texttt{PlantCareInferenceService}, \texttt{PlantCareRuntimeService}, \texttt{ManualControlService} & Cung cấp các chức năng mức hệ thống như WiFi STA/AP, WebSocket dashboard, CoreIOT telemetry, OTA, OLED rendering, TinyML inference và điều khiển manual. \\
+\hline
+Driver Layer & \texttt{DHTSensor}, \texttt{LedController}, \texttt{NeonController}, \texttt{OLEDDisplay}, \texttt{ButtonHandler} & Bao đóng truy cập phần cứng cụ thể, giúp lớp điều phối không phụ thuộc trực tiếp vào thao tác GPIO/I2C thấp. \\
+\hline
+\end{tabular}
+\caption{Phân rã kiến trúc theo lớp trong project}
+\label{tab:architecture-layers}
+\end{table}
+
+\subsection{Runtime Task and Event Flow}
+\textbf{Luồng dữ liệu cảm biến đến actuator và cloud}
+\begin{enumerate}
+    \item \texttt{SensorInputService::task\_sensor\_poll} phát \texttt{sensorSemaphore} mỗi \texttt{READ\_INTERVAL = 3000 ms}.
+    \item \texttt{InputLayer::task\_manager} nhận semaphore rồi gọi \texttt{SensorInputService::readSensors()} để đọc DHT11.
+    \item Nhiệt độ và độ ẩm mới được cập nhật vào runtime state (\texttt{globalTemp}, \texttt{globalHumi}); đồng thời \texttt{PlantCareRuntimeService::updateFromSensor()} chạy TinyML ngay sau khi có mẫu mới.
+    \item Sau khi suy luận xong, Input Layer đẩy event \texttt{SENSOR\_DATA\_READY} vào queue \texttt{qInputToProcessing}.
+    \item \texttt{Main\_FSM::handleEvent()} nhận event và cập nhật nhánh xử lý môi trường, ví dụ \texttt{NeonController::updateEnvironment()} cho NeoPixel.
+    \item Các worker task theo mode dùng cùng nguồn state này để gửi telemetry lên CoreIOT, broadcast ra AP dashboard và hiển thị lên OLED.
+\end{enumerate}
+
+\textbf{Vai trò của các mode worker}
+\begin{itemize}
+    \item \texttt{NORMAL\_MODE}: duy trì WiFi/MQTT connection, gửi telemetry định kỳ mỗi \SI{5}{s}, cho phép TinyML automation điều khiển fan.
+    \item \texttt{ACCESSPOINT\_MODE}: phát WiFi AP, broadcast telemetry qua WebSocket mỗi \SI{3}{s}, phục vụ dashboard cấu hình và relay control.
+    \item \texttt{MANUAL\_MODE}: vẫn duy trì connectivity/telemetry, nhưng actuator được ưu tiên điều khiển từ IR remote thông qua \texttt{ManualControlService}.
+\end{itemize}
+
+\textbf{Display loop độc lập}
+\begin{itemize}
+    \item \texttt{DisplayService::task\_display\_loop} chạy riêng với chu kỳ \SI{1}{s}.
+    \item Task này đọc snapshot nhiệt độ, độ ẩm, trạng thái mode và kết quả TinyML để render trang OLED tương ứng.
+    \item Nhờ tách OLED sang task riêng, việc refresh giao diện không chặn luồng đọc sensor hay luồng MQTT/AP.
+\end{itemize}
+
+\textbf{Sơ đồ luồng hoạt động theo từng mode}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{source/image/section_3/normalmode.png}
+    \caption{Luồng hoạt động ở \texttt{NORMAL\_MODE}}
+    \label{fig:normal-mode-flow}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{source/image/section_3/APmode.png}
+    \caption{Luồng hoạt động ở \texttt{ACCESSPOINT\_MODE}}
+    \label{fig:ap-mode-flow}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{source/image/section_3/manualmode.png}
+    \caption{Luồng hoạt động ở \texttt{MANUAL\_MODE}}
+    \label{fig:manual-mode-flow}
+\end{figure}
+
+\subsection{Project Structure}
+Mã nguồn được chia theo đúng vai trò kỹ thuật thay vì gom toàn bộ vào một thư mục \texttt{src}. Cách tổ chức này giúp nhóm dễ chứng minh trong báo cáo rằng project có cấu trúc mở rộng được, không phải demo một file.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|p{3.0cm}|p{4.8cm}|p{6.6cm}|}
+\hline
+\textbf{Thư mục / file} & \textbf{Nội dung chính} & \textbf{Ý nghĩa trong kiến trúc} \\
+\hline
+\texttt{src/main.cpp} & Điểm vào của firmware & Khởi tạo queue, FSM, InputLayer, DisplayService và mode mặc định. \\
+\hline
+\texttt{src/Input/}, \texttt{include/Input/} & Polling service cho button, sensor, IR remote & Cô lập hoàn toàn luồng input khỏi logic xử lý nghiệp vụ. \\
+\hline
+\texttt{src/Main\_FSM/}, \texttt{include/Main\_FSM/} & FSM, mode worker, chuyển mode & Trung tâm điều phối sự kiện và trạng thái hệ thống. \\
+\hline
+\texttt{src/services/}, \texttt{include/services/} & WiFi, AP server, MQTT/CoreIOT, OTA, display, TinyML, manual control & Chứa logic tích hợp và các capability mức hệ thống, tái sử dụng được giữa các mode. \\
+\hline
+\texttt{src/drivers/}, \texttt{include/drivers/} & DHT11, LED, NeoPixel, OLED, button driver & Bao đóng truy cập phần cứng và đồng bộ tài nguyên thấp tầng. \\
+\hline
+\texttt{include/data/} & \texttt{index\_html.h}, \texttt{styles\_css.h}, \texttt{script\_js.h} & Asset web AP được nhúng trực tiếp vào firmware để không phụ thuộc file system ngoài. \\
+\hline
+\texttt{scripts/} & Pipeline thu thập dữ liệu và train TinyML & Kết nối workflow offline (PC) với artefact nhúng vào firmware. \\
+\hline
+\texttt{ml\_artifacts/} & \texttt{.h5}, \texttt{.tflite}, training summary & Lưu kết quả huấn luyện phục vụ đánh giá và truy vết mô hình. \\
+\hline
+\texttt{report/} & File \LaTeX{} và PDF báo cáo & Tách riêng phần tài liệu hóa học thuật khỏi source firmware. \\
+\hline
+\texttt{platformio.ini} & Môi trường build \texttt{yolo\_uno}, lib dependencies, monitor filters & Điểm cấu hình thống nhất cho biên dịch, nạp firmware và serial monitor. \\
+\hline
+\end{tabular}
+\caption{Cấu trúc thư mục và vai trò của từng nhóm module}
+\label{tab:project-structure}
+\end{table}
+
 \subsection{Semaphore and Synchronization Design}
 \textbf{Input synchronization}
 \begin{itemize}
