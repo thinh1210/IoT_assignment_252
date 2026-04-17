@@ -1,0 +1,76 @@
+\section{Implementation Highlights}
+
+\subsection{Semaphore and Synchronization Design}
+\textbf{Input synchronization}
+\begin{itemize}
+    \item \texttt{btnSemaphore} (counting semaphore) gom sự kiện nút nhấn từ ISR/polling layer.
+    \item \texttt{sensorSemaphore} (binary semaphore) đồng bộ chu kỳ đọc cảm biến.
+    \item Input manager task lấy semaphore và chuyển thành event cho FSM qua queue \texttt{qInputToProcessing}.
+\end{itemize}
+
+\textbf{Driver-level mutual exclusion}
+\begin{itemize}
+    \item \texttt{LedController::ledMutex}: tránh ghi chồng GPIO LED giữa các task.
+    \item \texttt{NeonController::stateMutex}: bảo vệ state môi trường, màu LED, nhịp chớp, manual override.
+    \item \texttt{ApService::relayMutex}: bảo vệ relay list và thao tác state relay khi có nhiều luồng WS/automation.
+    \item \texttt{ManualControlService::stateMutex}: đồng bộ trạng thái manual IR (fan, pump, green LED, neo LED).
+\end{itemize}
+
+\textbf{Logging synchronization}
+\begin{itemize}
+    \item \texttt{AppLog} có mutex riêng để tránh log bị trộn giữa nhiều task.
+    \item Log format thống nhất theo timestamp, level, file, function giúp debug đa task dễ hơn.
+\end{itemize}
+
+\subsection{Web Server Redesign in AP Mode}
+\begin{itemize}
+    \item UI đổi sang dashboard hiện đại (card/gauge/tab), thân thiện hơn bản mẫu cơ bản.
+    \item WebSocket xử lý realtime telemetry, relay list, trạng thái TinyML.
+    \item HTTP endpoints:
+    \begin{itemize}
+        \item \texttt{/} trả HTML dashboard
+        \item \texttt{/styles.css}
+        \item \texttt{/script.js}
+    \end{itemize}
+    \item WebSocket actions:
+    \begin{itemize}
+        \item \texttt{add\_relay}
+        \item \texttt{toggle\_relay}
+        \item \texttt{delete\_relay}
+        \item \texttt{save\_settings}
+    \end{itemize}
+\end{itemize}
+
+\subsection{TinyML Workflow (Data to Device)}
+\begin{enumerate}
+    \item Thu mẫu nhiệt độ/độ ẩm và gán nhãn qua script thu thập.
+    \item Train MLP nhỏ bằng TensorFlow/Keras.
+    \item Quantize int8 và export sang \texttt{tflite} + header C.
+    \item Nhúng model vào firmware, khởi tạo TFLM interpreter.
+    \item Mỗi lần có mẫu DHT mới:
+    \begin{itemize}
+        \item chuẩn hóa + lượng tử hóa input
+        \item \texttt{Invoke()} suy luận
+        \item lưu snapshot action/confidence
+        \item tự động điều khiển quạt ở NORMAL/AP mode
+    \end{itemize}
+    \item Publish đồng thời ra OLED, AP dashboard, và CoreIOT telemetry.
+\end{enumerate}
+
+\subsection{CoreIOT Workflow and OTA}
+\textbf{CoreIOT telemetry flow}
+\begin{enumerate}
+    \item Kết nối WiFi STA.
+    \item Kết nối MQTT tới \texttt{app.coreiot.io:1883}.
+    \item Xác thực bằng token cấu hình cho đúng device.
+    \item Gửi telemetry định kỳ mỗi \SI{5}{s} ở NORMAL/MANUAL mode.
+\end{enumerate}
+
+\textbf{OTA flow}
+\begin{enumerate}
+    \item Subscribe shared attributes OTA.
+    \item Gửi request metadata firmware.
+    \item Download và ghi image qua \texttt{Arduino\_ESP32\_Updater}.
+    \item Báo trạng thái \texttt{UPDATED} về CoreIOT.
+    \item Restart có delay an toàn sau khi update thành công.
+\end{enumerate}

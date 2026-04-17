@@ -1,0 +1,71 @@
+\section{Evaluation and Experimental Results}
+
+\subsection{Test Environment}
+\begin{itemize}
+    \item Board: ESP32-S3 (Yolo UNO)
+    \item Framework: Arduino + FreeRTOS (PlatformIO)
+    \item Cảm biến: DHT11
+    \item Hiển thị: OLED SH1106 (U8g2)
+    \item Network:
+    \begin{itemize}
+        \item AP mode: local dashboard + WebSocket
+        \item STA mode: MQTT telemetry tới CoreIOT
+    \end{itemize}
+\end{itemize}
+
+\subsection{Functional Test Matrix}
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{1.6cm}|p{6.8cm}|p{2.8cm}|p{3.5cm}|}
+\hline
+\textbf{Task} & \textbf{Nội dung kiểm thử} & \textbf{Kết quả} & \textbf{Ghi chú} \\
+\hline
+1 & LED single-channel có 3 profile blink và truy cập GPIO có mutex & Pass module-level & 3 profile đã hiện thực, có thể tái sử dụng cho thermal alert \\
+\hline
+2 & NeoPixel phản ánh môi trường theo nhiều mức và cập nhật thread-safe & Pass runtime & Có Normal/Warning/Critical, mutex bảo vệ state \\
+\hline
+3 & OLED hiển thị nhiều trạng thái nhiệt/ẩm và chạy theo luồng event từ semaphore & Pass runtime & Có trạng thái no-sensor/warn/alert; event từ sensor semaphore \\
+\hline
+4 & AP dashboard điều khiển tối thiểu 2 thiết bị, có nút hành động rõ ràng & Pass runtime & Fan/Pump + add/toggle/delete relay + save settings \\
+\hline
+5 & TinyML chạy on-device và phát output ra nhiều kênh & Pass runtime & Output xuất ra OLED, AP, CoreIOT; auto fan trong NORMAL/AP \\
+\hline
+6 & Publish telemetry lên CoreIOT trong STA mode đúng token & Pass runtime & Có retry/reconnect và log trạng thái kết nối \\
+\hline
+\end{tabular}
+\caption{Kết quả kiểm thử chức năng theo 6 task}
+\label{tab:functional-results}
+\end{table}
+
+\subsection{TinyML Evaluation}
+\subsubsection{Dataset and Training Metrics}
+Theo file \texttt{ml\_artifacts/tinyml\_training\_summary.json}:
+\begin{itemize}
+    \item Dataset: 90 mẫu nhiệt độ/độ ẩm có nhãn (3 lớp hành động).
+    \item Tách tập: 72 train, 18 validation.
+    \item Train accuracy: 1.0.
+    \item Validation accuracy: 1.0.
+    \item Số epoch train: 150.
+\end{itemize}
+
+\subsubsection{On-device Execution}
+\begin{itemize}
+    \item Model int8 nhúng trực tiếp vào firmware.
+    \item Interpreter TFLM khởi tạo thành công với tensor arena \SI{8}{KB}.
+    \item Suy luận chạy theo chu kỳ đọc cảm biến (\SI{3}{s}), sau đó cập nhật:
+    \begin{itemize}
+        \item \texttt{tinyml\_result}, \texttt{tinyml\_action\_id}, \texttt{tinyml\_confidence} cho cloud/AP.
+        \item Dòng \texttt{AI:...} trên OLED.
+        \item Logic auto fan ở mode NORMAL/AP.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Discussion on Accuracy}
+Kết quả định lượng hiện có là \textbf{accuracy offline} (train/validation) từ pipeline huấn luyện. Ở mức firmware, nhóm đã xác nhận được tính đúng đắn luồng suy luận (functional correctness) qua log và hành vi actuator. Để tăng tính học thuật cho phần ``hardware accuracy'', nhóm đề xuất bước tiếp theo là thêm test harness replay tập mẫu có nhãn trực tiếp trên board và tự động tính confusion matrix tại runtime.
+
+\subsection{Reliability Observations}
+\begin{itemize}
+    \item Hệ thống giữ được kết nối nhờ cơ chế retry WiFi/MQTT theo chu kỳ.
+    \item OTA subscription được reset khi mất MQTT để tránh mất luồng cập nhật firmware.
+    \item Logging có mutex giúp giảm tình trạng trộn dòng khi nhiều task chạy đồng thời.
+\end{itemize}

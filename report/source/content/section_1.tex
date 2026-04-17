@@ -1,0 +1,26 @@
+\section{Introduction and Objectives}
+\label{sec:introduction}
+
+\subsection{Introduction}
+Đồ án xây dựng hệ thống IoT chăm sóc cây trên nền tảng \textbf{ESP32-S3} (board Yolo UNO), phát triển bằng \textbf{PlatformIO}. Hệ thống kết hợp nhiều lớp chức năng: đọc cảm biến DHT, điều khiển LED/NeoPixel/OLED, web server ở chế độ Access Point, gửi telemetry lên CoreIOT, và suy luận TinyML ngay trên vi điều khiển.
+
+Khác với demo đơn năng, project được thiết kế theo hướng hệ thống nhúng đa tác vụ với FreeRTOS:
+\begin{itemize}
+    \item Tách lớp Input, FSM xử lý, và service mạng/hiển thị.
+    \item Đồng bộ bằng semaphore/mutex ở các điểm chia sẻ tài nguyên.
+    \item Hỗ trợ nhiều mode vận hành: NORMAL, ACCESSPOINT, MANUAL.
+\end{itemize}
+
+\subsection{Objectives}
+Nhóm đặt mục tiêu hiện thực và đánh giá 6 yêu cầu của bài tập lớn:
+\begin{enumerate}
+    \item Điều khiển LED theo điều kiện nhiệt độ với tối thiểu 3 hành vi.
+    \item Điều khiển NeoPixel theo mức độ ẩm với tối thiểu 3 mức màu/trạng thái.
+    \item Giám sát nhiệt độ/độ ẩm trên OLED với các trạng thái Normal/Warning/Critical và đồng bộ tác vụ bằng semaphore.
+    \item Thiết kế lại giao diện web server AP, hỗ trợ điều khiển ít nhất 2 thiết bị.
+    \item Triển khai TinyML trên ESP32-S3 và đánh giá độ chính xác.
+    \item Gửi dữ liệu lên CoreIOT ở chế độ STA, dùng đúng token thiết bị.
+\end{enumerate}
+
+\subsection{Scope and Current Version}
+Trong phiên bản hiện tại, toàn bộ 6 nhóm chức năng đã có đường chạy end-to-end trong firmware. Một số tiêu chí học thuật nâng cao (ví dụ benchmark độ chính xác TinyML tự động trên tập kiểm thử chạy trực tiếp trên phần cứng, hoặc refactor loại bỏ hoàn toàn global state) được trình bày rõ ở phần hạn chế và hướng phát triển để đảm bảo trung thực giữa báo cáo và mã nguồn.

@@ -1,0 +1,48 @@
+\section{Additional Features Beyond the 6 Required Tasks}
+
+\subsection{OTA Firmware Update}
+\begin{itemize}
+    \item Tích hợp OTA qua stack ThingsBoard/CoreIOT:
+    \begin{itemize}
+        \item subscribe firmware shared-attributes
+        \item request metadata firmware
+        \item download/flash bằng \texttt{Arduino\_ESP32\_Updater}
+    \end{itemize}
+    \item Có log chi tiết các bước: setup attempt, metadata request, progress, finish.
+    \item Sau update thành công:
+    \begin{itemize}
+        \item gửi trạng thái \texttt{UPDATED} lên server
+        \item restart có delay an toàn
+    \end{itemize}
+    \item Cơ chế bền vững:
+    \begin{itemize}
+        \item reset cờ subscribe OTA khi MQTT disconnect
+        \item setup lại OTA sau khi reconnect
+    \end{itemize}
+\end{itemize}
+
+\subsection{Manual Mode with IR Remote}
+\begin{itemize}
+    \item Hỗ trợ vòng chuyển mode bằng remote: NORMAL $\rightarrow$ ACCESSPOINT $\rightarrow$ MANUAL.
+    \item Trong MANUAL mode, người dùng có thể điều khiển trực tiếp:
+    \begin{itemize}
+        \item Fan relay
+        \item Pump relay
+        \item Green LED
+        \item NeoPixel
+    \end{itemize}
+    \item State manual được bảo vệ bằng mutex, không tranh chấp với automation task.
+    \item Khi thoát MANUAL mode, hệ thống trả NeoPixel về điều khiển theo môi trường.
+\end{itemize}
+
+\subsection{Unified Debug Logging}
+\begin{itemize}
+    \item Thay thế luồng log rời rạc bằng \texttt{AppLog} thống nhất:
+    \begin{itemize}
+        \item format log theo level, file, function, timestamp
+        \item đồng bộ ghi log bằng mutex
+    \end{itemize}
+    \item Tắt \texttt{Serial.setDebugOutput(true)} để giảm lỗi log lẫn byte trên USB CDC.
+    \item ThingsBoard logger được route về cùng hệ log nội bộ, giúp thấy đầy đủ trạng thái OTA/MQTT.
+    \item \texttt{DebugLog} của TFLite Micro cũng đã đi qua cùng sink log để thống nhất debug TinyML.
+\end{itemize}

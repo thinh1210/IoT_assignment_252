@@ -1,0 +1,20 @@
+\section{Group Discussion and Conclusion}
+
+\subsection{Group Discussion}
+Sau khi hoàn thành bản tích hợp hiện tại, nhóm thống nhất một số điểm kỹ thuật quan trọng:
+\begin{itemize}
+    \item Thiết kế theo lớp (Input/FSM/Service/Driver) giúp mở rộng tính năng nhanh và giảm rủi ro chồng chéo logic.
+    \item Semaphore/mutex là bắt buộc trong bối cảnh đa task, đặc biệt ở các vùng tranh chấp như GPIO, relay list, logging.
+    \item TinyML với mô hình nhỏ (int8) là phù hợp cho ESP32-S3: chi phí bộ nhớ thấp nhưng vẫn đủ để tạo quyết định điều khiển hữu ích theo môi trường.
+    \item AP dashboard đóng vai trò then chốt cho vận hành thực tế, vì cho phép cấu hình tại chỗ khi thiết bị chưa vào mạng STA.
+\end{itemize}
+
+\subsection{Conclusion}
+Đồ án đã hiện thực hệ thống IoT plant-care trên ESP32-S3 và đáp ứng bộ yêu cầu chính gồm điều khiển LED/NeoPixel/OLED theo ngữ cảnh cảm biến, web server AP điều khiển thiết bị, suy luận TinyML on-device, và publish telemetry lên CoreIOT ở STA mode. Ngoài yêu cầu bắt buộc, nhóm bổ sung OTA firmware update, manual mode qua IR remote, và logging framework thống nhất để tăng khả năng vận hành/debug.
+
+Kết quả thử nghiệm cho thấy luồng chức năng end-to-end hoạt động ổn định trong điều kiện lab. Phần TinyML đã có metric huấn luyện/validation tốt và chạy thành công trên thiết bị thật. Trong các phiên bản tiếp theo, nhóm ưu tiên:
+\begin{itemize}
+    \item xây dựng benchmark tự động cho hardware accuracy (confusion matrix trên board),
+    \item refactor giảm phụ thuộc global state theo hướng context-based architecture,
+    \item mở rộng thêm actuator (ví dụ pump GPIO thật) để tận dụng đầy đủ action space của mô hình.
+\end{itemize}

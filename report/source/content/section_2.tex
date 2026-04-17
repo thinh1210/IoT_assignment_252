@@ -1,0 +1,120 @@
+\section{Implemented Functionalities for Tasks 1--6}
+
+\subsection{Task 1: Single LED Blink with Temperature Conditions}
+\textbf{Thiết kế đã hiện thực}
+\begin{itemize}
+    \item Module \texttt{LedController} hỗ trợ 3 profile chớp riêng: \texttt{blink1000ms\_3times}, \texttt{blink500ms\_3times}, \texttt{blink200ms\_for\_3s}.
+    \item Mọi thao tác GPIO của LED đều đi qua mutex \texttt{ledMutex} để tránh tranh chấp khi nhiều task cùng truy cập LED.
+    \item Các ngưỡng nhiệt độ phục vụ phân lớp hành vi được cấu hình tập trung trong \texttt{config.h}:
+    \begin{itemize}
+        \item Low band: dưới \texttt{ENV\_TEMP\_BLINK\_LOW\_THRESHOLD} (\SI{24}{\degreeCelsius}).
+        \item Medium band: giữa \SI{24}{\degreeCelsius} và \SI{30}{\degreeCelsius}.
+        \item High band: trên \texttt{ENV\_TEMP\_BLINK\_HIGH\_THRESHOLD} (\SI{30}{\degreeCelsius}).
+    \end{itemize}
+\end{itemize}
+
+\textbf{Trạng thái hiện tại trong firmware}
+Trong kiến trúc hiện tại, phản hồi môi trường theo nhiệt độ chạy chính trên nhánh NeoPixel (Task 2), còn LED đơn đóng vai trò actuator/manual indicator và đã có đầy đủ 3 profile blink bảo vệ bằng semaphore để tái sử dụng trong các cảnh báo nhiệt độ.
+
+\subsection{Task 2: NeoPixel LED Control Based on Humidity}
+\textbf{Mapping độ ẩm sang màu/trạng thái}
+\begin{itemize}
+    \item \textbf{Normal:} độ ẩm trong vùng theo dõi, NeoPixel xanh lá.
+    \item \textbf{Warning:} độ ẩm thấp cảnh báo (ví dụ dưới \SI{45}{\percent}), NeoPixel cam.
+    \item \textbf{Critical:} quá khô (dưới \SI{40}{\percent}) hoặc quá ẩm (trên \SI{80}{\percent}), NeoPixel đỏ.
+\end{itemize}
+
+\textbf{Đồng bộ semaphore}
+\begin{itemize}
+    \item \texttt{NeonController} dùng mutex \texttt{stateMutex} để bảo vệ toàn bộ state nội bộ (màu, nhịp chớp, trạng thái manual override).
+    \item Task nền \texttt{task\_blink\_loop} đọc state theo chu kỳ và render không chặn luồng đọc cảm biến.
+    \item Event \texttt{SENSOR\_DATA\_READY} từ Input Layer kích hoạt cập nhật NeoPixel theo dữ liệu mới.
+\end{itemize}
+
+\subsection{Task 3: Temperature/Humidity Monitoring with OLED Display}
+\textbf{Display states (ít nhất 3 trạng thái)}
+\begin{itemize}
+    \item \texttt{STATUS: NORMAL}
+    \item \texttt{WARN: SLIGHT HOT}, \texttt{WARN: SLIGHT DRY}, \texttt{WARN: HOT + DRY}
+    \item \texttt{ALERT: TOO HOT}, \texttt{ALERT: TOO DRY}, \texttt{ALERT: TOO HUMID}, \texttt{ALERT: HOT + DRY}
+\end{itemize}
+
+\textbf{Điều kiện tạo/phát semaphore theo cảm biến}
+\begin{itemize}
+    \item \texttt{sensorSemaphore} được tạo trong Input Layer.
+    \item Task \texttt{task\_sensor\_poll} phát semaphore theo chu kỳ \texttt{READ\_INTERVAL} (\SI{3000}{ms}).
+    \item Input manager \texttt{xSemaphoreTake(sensorSemaphore)} rồi gọi \texttt{readSensors()}, phát event \texttt{SENSOR\_DATA\_READY} cho FSM.
+\end{itemize}
+
+\textbf{Về yêu cầu ``remove all global variables''}
+Phiên bản hiện tại vẫn còn một số biến trạng thái toàn cục (nhiệt độ, độ ẩm, state TinyML, config runtime). Tuy nhiên, truy cập state đã được kiểm soát bằng mutex/semaphore hoặc critical section. Việc refactor triệt để sang context object/queue-only architecture được đưa vào hướng phát triển.
+
+\subsection{Task 4: Web Server in Access Point Mode}
+\textbf{Giao diện đã redesign}
+\begin{itemize}
+    \item Dashboard AP mới theo layout card-based, có tab \textit{Tổng quan}, \textit{Thiết bị}, \textit{Cấu hình}.
+    \item Hỗ trợ WebSocket real-time cho telemetry và relay state.
+    \item UX hiển thị rõ TinyML recommendation, gauge nhiệt/ẩm, trạng thái kết nối.
+\end{itemize}
+
+\textbf{Điều khiển tối thiểu 2 thiết bị}
+\begin{itemize}
+    \item Hai relay mặc định được đồng bộ trong hệ thống:
+    \begin{itemize}
+        \item \texttt{Fan PWM} (GPIO quạt).
+        \item \texttt{Pump Relay} (GPIO bơm, có thể cấu hình).
+    \end{itemize}
+    \item Giao diện có đủ nút hành động điều khiển: \texttt{BẬT/TẮT THIẾT BỊ}, \texttt{THÊM RELAY}, \texttt{XÓA RELAY}, và nút lưu cấu hình mạng.
+\end{itemize}
+
+\subsection{Task 5: TinyML Deployment and Accuracy Evaluation}
+\textbf{Dataset và labels}
+\begin{itemize}
+    \item File dữ liệu: \texttt{data/tinyml\_samples.csv}
+    \item Feature: \texttt{temperature}, \texttt{humidity}
+    \item Label mapping:
+    \begin{itemize}
+        \item 0: No action
+        \item 1: Turn on fan
+        \item 2: Need watering
+    \end{itemize}
+\end{itemize}
+
+\textbf{Workflow TinyML}
+\begin{itemize}
+    \item Thu thập dữ liệu và train bằng script \texttt{scripts/tinyml\_pipeline.py}.
+    \item Xuất artefact: \texttt{.h5}, \texttt{.tflite int8}, và header C (\texttt{include/tinyml\_model\_data.h}).
+    \item Trên ESP32-S3: dùng TFLite Micro với tensor arena \SI{8}{KB}, op resolver tối thiểu \texttt{FullyConnected + Softmax}, suy luận mỗi chu kỳ đọc cảm biến.
+    \item Kết quả suy luận được publish ra OLED/AP/CoreIOT và điều khiển quạt ở mode tự động.
+\end{itemize}
+
+\textbf{Kết quả accuracy hiện có}
+\begin{itemize}
+    \item Theo \texttt{ml\_artifacts/tinyml\_training\_summary.json}:
+    \begin{itemize}
+        \item Số mẫu: 90 (train 72, validation 18)
+        \item Train accuracy: 1.0
+        \item Validation accuracy: 1.0
+    \end{itemize}
+\end{itemize}
+
+\subsection{Task 6: Data Publishing to CoreIOT Cloud Server}
+\textbf{Kết nối STA và xác thực token}
+\begin{itemize}
+    \item Thiết bị chuyển sang \texttt{WIFI\_STA}, kết nối WiFi và MQTT host \texttt{app.coreiot.io}.
+    \item Token được lấy theo thứ tự ưu tiên:
+    \begin{itemize}
+        \item token người dùng lưu từ web portal
+        \item UID thiết bị đã lưu
+        \item fallback token compile-time trong \texttt{config.h}
+    \end{itemize}
+\end{itemize}
+
+\textbf{Telemetry gửi lên CoreIOT}
+\begin{itemize}
+    \item Nhiệt độ, độ ẩm, trạng thái cảnh báo, trạng thái quạt/bơm.
+    \item Kết quả TinyML: \texttt{tinyml\_result}, \texttt{tinyml\_action\_id}, \texttt{tinyml\_confidence}.
+\end{itemize}
+
+\textbf{Template CoreIOT}
+Firmware sử dụng stack ThingsBoard/CoreIOT (Arduino MQTT client + ThingsBoard library) phù hợp mô hình template mà CoreIOT cung cấp cho thiết bị nhúng dùng MQTT telemetry.
