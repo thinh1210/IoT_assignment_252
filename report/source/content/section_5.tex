@@ -39,10 +39,10 @@
 \begin{itemize}
     \item Thay thế luồng log rời rạc bằng \texttt{AppLog} thống nhất:
     \begin{itemize}
-        \item format log theo level, file, function, timestamp
-        \item đồng bộ ghi log bằng mutex
+        \item Định dạng các bản ghi theo cấp độ, tệp nguồn, hàm thực thi và mốc thời gian.
+        \item Thực hiện đồng bộ hóa việc ghi các bản ghi thông qua mutex.
     \end{itemize}
-    \item Tắt \texttt{Serial.setDebugOutput(true)} để giảm lỗi log lẫn byte trên USB CDC.
-    \item ThingsBoard logger được route về cùng hệ log nội bộ, giúp thấy đầy đủ trạng thái OTA/MQTT.
-    \item \texttt{DebugLog} của TFLite Micro cũng đã đi qua cùng sink log để thống nhất debug TinyML.
+    \item Tắt tính năng Serial setDebugOutput để giảm thiểu lỗi ghi nhật ký hoặc hiện tượng nhiễu dữ liệu trên cổng USB CDC.
+    \item Hệ thống ghi nhật ký của ThingsBoard đã được chuyển hướng về cùng một hệ thống quản lý nội bộ, giúp theo dõi đầy đủ trạng thái của OTA và MQTT.
+    \item Thành phần DebugLog của TFLite Micro cũng được tích hợp vào cùng một đầu ra để thống nhất quá trình gỡ lỗi cho TinyML.
 \end{itemize}

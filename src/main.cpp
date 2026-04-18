@@ -33,7 +33,8 @@ TaskHandle_t task_plant_care_handle = NULL;
 SemaphoreHandle_t btnSemaphore = NULL;
 SemaphoreHandle_t sensorSemaphore = NULL;
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   AppLog::init();
   ESP_LOGI(TAG, "USB CDC ready");
@@ -53,7 +54,8 @@ void setup() {
   TaskManager::initModes();
 }
 
-void loop() {
+void loop()
+{
   // The system is managed by FreeRTOS tasks initialized in TaskManager
   vTaskDelay(pdMS_TO_TICKS(1000));
 }

@@ -2,10 +2,10 @@
 
 \subsection{Test Environment}
 \begin{itemize}
-    \item Board: ESP32-S3 (Yolo UNO)
-    \item Framework: Arduino + FreeRTOS (PlatformIO)
-    \item Cảm biến: DHT11
-    \item Hiển thị: OLED SH1106 (U8g2)
+    \item Board mạch: ESP32-S3 với phiên bản Yolo UNO.
+    \item Framework: Arduino kết hợp FreeRTOS trên môi trường PlatformIO.
+    \item Cảm biến: DHT11.
+    \item Hiển thị: OLED SH1106 sử dụng thư viện U8g2.
     \item Network:
     \begin{itemize}
         \item AP mode: local dashboard + WebSocket
@@ -61,7 +61,7 @@ Theo file \texttt{ml\_artifacts/tinyml\_training\_summary.json}:
 \end{itemize}
 
 \subsubsection{Discussion on Accuracy}
-Kết quả định lượng hiện có là \textbf{accuracy offline} (train/validation) từ pipeline huấn luyện. Ở mức firmware, nhóm đã xác nhận được tính đúng đắn luồng suy luận (functional correctness) qua log và hành vi actuator. Để tăng tính học thuật cho phần ``hardware accuracy'', nhóm đề xuất bước tiếp theo là thêm test harness replay tập mẫu có nhãn trực tiếp trên board và tự động tính confusion matrix tại runtime.
+Kết quả định lượng hiện có là độ chính xác ngoại tuyến từ quy trình huấn luyện. Ở mức chương trình điều khiển, nhóm đã xác nhận được tính đúng đắn của luồng suy luận thông qua nhật ký hệ thống và hành vi của thiết bị chấp hành. Để tăng tính học thuật cho phần đánh giá độ chính xác trên phần cứng, nhóm đề xuất bước tiếp theo là bổ sung bộ kiểm thử phát lại các tập mẫu có nhãn trực tiếp trên bảng mạch và tự động tính toán ma trận nhầm lẫn tại thời điểm thực thi.
 
 \subsection{Reliability Observations}
 \begin{itemize}
