@@ -128,26 +128,84 @@ Mã nguồn được chia theo đúng vai trò kỹ thuật thay vì gom toàn b
 \end{table}
 
 \subsection{Semaphore and Synchronization Design}
+Hệ thống dùng semaphore và mutex theo ba vai trò khác nhau: đồng bộ producer-consumer ở lớp input, bảo vệ state hoặc phần cứng dùng chung ở lớp driver/service, và tuần tự hóa đầu ra log. Cách chia này giúp các task sinh dữ liệu chạy ngắn gọn, còn xử lý nghiệp vụ tập trung ở FSM thông qua queue sự kiện.
+
 \textbf{Input synchronization}
 \begin{itemize}
-    \item \texttt{btnSemaphore} (counting semaphore) gom sự kiện nút nhấn từ ISR/polling layer.
-    \item \texttt{sensorSemaphore} (binary semaphore) đồng bộ chu kỳ đọc cảm biến.
-    \item Input manager task lấy semaphore và chuyển thành event cho FSM qua queue \texttt{qInputToProcessing}.
+    \item Trong source hiện tại, sự kiện nút nhấn được phát từ \textit{polling task}, chưa dùng ISR. Hàm \texttt{InputLayer::init()} tạo \texttt{btnSemaphore = xSemaphoreCreateCounting(20, 0)} để gom nhiều sự kiện nút liên tiếp mà không bị mất nếu consumer xử lý chậm hơn trong một khoảng ngắn.
+    \item Task \texttt{ButtonInputService::task\_button\_poll()} chạy chu kỳ 50\,ms, gọi \texttt{ButtonHandler::loop()} để debounce, nhận diện \texttt{SINGLE\_CLICK}, \texttt{DOUBLE\_CLICK}, \texttt{TRIPLE\_CLICK} và \texttt{LONG\_PRESS}. Khi phát hiện event hợp lệ, lớp này chỉ cần \texttt{xSemaphoreGive(btnSemaphore)} thay vì truy cập trực tiếp FSM.
+    \item Task trung gian \texttt{InputLayer::task\_manager()} lấy \texttt{btnSemaphore} với timeout ngắn 10\,ms. Khi lấy được semaphore, task này gọi \texttt{ButtonInputService::handleButtonEvents()} để chuyển event vật lý thành \texttt{SystemEvent} và đưa vào queue xử lý chung \texttt{qProcessing}.
+    \item \texttt{sensorSemaphore} được tạo bằng \texttt{xSemaphoreCreateBinary()}. Với cảm biến, hệ thống chỉ cần biết ``đã tới chu kỳ đọc mới'' nên binary semaphore là phù hợp hơn counting semaphore.
+    \item Task \texttt{SensorInputService::task\_sensor\_poll()} chỉ có nhiệm vụ chờ \texttt{READ\_INTERVAL} rồi \texttt{xSemaphoreGive(sensorSemaphore)}. Sau đó \texttt{InputLayer::task\_manager()} nhận tín hiệu này, gọi \texttt{readSensors()}, cập nhật dữ liệu DHT và đẩy event \texttt{SENSOR\_DATA\_READY} cho FSM.
 \end{itemize}
+
+\begin{lstlisting}[language=C++,caption={Counting semaphore cho luong nut nhan}]
+btnSemaphore = xSemaphoreCreateCounting(20, 0);
+btnHandler->setSemaphore(btnSemaphore);
+
+// Producer: polling + debounce layer
+if (btn.clickCount >= 3) {
+  btn.lastEvent = ButtonEvent::TRIPLE_CLICK;
+  xSemaphoreGive(_eventSemaphore);
+}
+
+// Consumer: input manager
+if (xSemaphoreTake(btnSemaphore, pdMS_TO_TICKS(10)) == pdPASS) {
+  ButtonInputService::handleButtonEvents(btnHandler, qProcessing);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++,caption={Binary semaphore cho chu ky doc cam bien}]
+void SensorInputService::task_sensor_poll(void *param) {
+  SemaphoreHandle_t syncSem = (SemaphoreHandle_t)param;
+  while (1) {
+    vTaskDelay(pdMS_TO_TICKS(READ_INTERVAL));
+    xSemaphoreGive(syncSem);
+  }
+}
+
+if (xSemaphoreTake(sensorSemaphore, pdMS_TO_TICKS(10)) == pdPASS) {
+  SensorInputService::readSensors(qProcessing);
+}
+\end{lstlisting}
 
 \textbf{Driver-level mutual exclusion}
 \begin{itemize}
-    \item \texttt{LedController::ledMutex}: tránh ghi chồng GPIO LED giữa các task.
-    \item \texttt{NeonController::stateMutex}: bảo vệ state môi trường, màu LED, nhịp chớp, manual override.
-    \item \texttt{ApService::relayMutex}: bảo vệ relay list và thao tác state relay khi có nhiều luồng WS/automation.
-    \item \texttt{ManualControlService::stateMutex}: đồng bộ trạng thái manual IR (fan, pump, green LED, neo LED).
+    \item \texttt{LedController::ledMutex} bảo vệ GPIO LED xanh và biến \texttt{ledState}. Mọi thao tác \texttt{setState()}, \texttt{toggle()} hay \texttt{blink()} đều đi qua cùng một mutex, nên nhiều task không thể ghi chồng lên cùng chân GPIO trong cùng thời điểm.
+    \item \texttt{NeonController::stateMutex} bảo vệ toàn bộ state nội bộ của NeoPixel: màu môi trường, chu kỳ chớp, cờ \texttt{manualOverride}, trạng thái sáng/tắt trong manual mode. Điểm quan trọng là blink task chỉ sao chép snapshot state trong vùng khóa rồi nhả mutex trước khi gọi \texttt{showColor()} và \texttt{vTaskDelay()}, nhờ đó critical section ngắn và ít chặn các task khác.
+    \item \texttt{ApService::relayMutex} bảo vệ \texttt{relayList} khi có nhiều nguồn cập nhật như WebSocket dashboard, automation và manual control. Các hàm \texttt{setRelayState()}, \texttt{getRelayState()}, \texttt{syncAutomationRelays()} và các nhánh \texttt{add/toggle/delete relay} cùng dùng mutex này với timeout 200\,ms để giữ cho trạng thái trên RAM, GPIO, NVS và dashboard nhất quán.
+    \item \texttt{ManualControlService::stateMutex} đồng bộ snapshot manual gồm \texttt{fanOn}, \texttt{pumpOn}, \texttt{greenLedOn}, \texttt{neoLedOn} và cờ \texttt{active}. Cài đặt hiện tại chỉ giữ mutex đủ lâu để cập nhật state nội bộ, sau đó nhả khóa rồi mới gọi sang \texttt{ApService}, \texttt{LedController} hoặc \texttt{NeonController}. Mẫu này giúp tránh giữ lock quá lâu và giảm nguy cơ lock lồng nhau.
 \end{itemize}
+
+\begin{lstlisting}[language=C++,caption={Mau cap nhat state ngan gon roi moi goi driver}]
+if (xSemaphoreTake(stateMutex, pdMS_TO_TICKS(50)) != pdPASS) {
+  return;
+}
+
+state.neoLedOn = !state.neoLedOn;
+const bool nextState = state.neoLedOn;
+xSemaphoreGive(stateMutex);
+
+NeonController::setManualOverride(true, nextState);
+\end{lstlisting}
 
 \textbf{Logging synchronization}
 \begin{itemize}
-    \item \texttt{AppLog} có mutex riêng để tránh log bị trộn giữa nhiều task.
-    \item Log format thống nhất theo timestamp, level, file, function giúp debug đa task dễ hơn.
+    \item \texttt{AppLog} tạo mutex riêng \texttt{s\_logMutex} để mọi task cùng ghi log mà không bị xen dòng.
+    \item Mỗi message được format hoàn chỉnh vào buffer trước, sau đó mới lấy mutex khi ghi ra \texttt{Serial}. Nhờ vậy thời gian giữ lock ngắn hơn so với cách vừa format vừa ghi trực tiếp.
+    \item Mẫu log thống nhất theo \texttt{[timestamp][level][file:line] function(): [tag] message}, rất hữu ích khi cần truy vết tương tác giữa nhiều task FreeRTOS.
 \end{itemize}
+
+\begin{lstlisting}[language=C++,caption={Mutex cho logging da task}]
+snprintf(lineBuffer, sizeof(lineBuffer),
+         "[%6lu][%c][%s:%u] %s(): [%s] %s\r\n",
+         timestamp, level, file, line, function, tag, message);
+
+if (xSemaphoreTake(s_logMutex, kLogMutexWait) == pdPASS) {
+  writeToSerialLocked(lineBuffer, strlen(lineBuffer));
+  xSemaphoreGive(s_logMutex);
+}
+\end{lstlisting}
 
 \subsection{Web Server Redesign in AP Mode}
 \begin{itemize}
@@ -167,6 +225,20 @@ Mã nguồn được chia theo đúng vai trò kỹ thuật thay vì gom toàn b
         \item \texttt{save\_settings}
     \end{itemize}
 \end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{source/image/APmode.png}
+    \caption{Giao diện dashboard WebSocket trong \texttt{ACCESSPOINT\_MODE}}
+    \label{fig:ap-dashboard}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{source/image/APmode2.png}
+    \caption{Giao diện dashboard WebSocket trong \texttt{ACCESSPOINT\_MODE} hiển thị kết quả suy luận TinyML} 
+\end{figure}
+
 
 \subsection{TinyML Workflow (Data to Device)}
 \begin{enumerate}
