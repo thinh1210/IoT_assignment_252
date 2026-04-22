@@ -16,7 +16,7 @@
 // OTA metadata for CoreIoT / ThingsBoard firmware updates.
 // Keep title stable for this device family and bump version on each release.
 #define COREIOT_FW_TITLE "iot_assignment_252"
-#define COREIOT_FW_VERSION "1.4.0"
+#define COREIOT_FW_VERSION "1.6.0"
 
 // CoreIoT local alert thresholds used for telemetry publishing.
 #define COREIOT_ALERT_TEMP_THRESHOLD 35.0f

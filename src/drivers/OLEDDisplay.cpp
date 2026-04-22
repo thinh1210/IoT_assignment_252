@@ -158,7 +158,7 @@ void OLEDDisplay::drawWelcomeFrame(const char *name, int16_t offsetX,
   }
 
   u8g2.setFont(u8g2_font_5x7_tf);
-  u8g2.drawStr(baseX, 20, "chao");
+  u8g2.drawStr(baseX, 20, "Hello");
 
   u8g2.setFont(u8g2_font_ncenB12_tr);
   u8g2.drawStr(baseX, 42, name);
