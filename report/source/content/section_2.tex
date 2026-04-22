@@ -7,21 +7,21 @@
     \item Mọi thao tác GPIO của LED đều đi qua mutex \texttt{ledMutex} để tránh tranh chấp khi nhiều task cùng truy cập LED.
     \item Các ngưỡng nhiệt độ phục vụ phân lớp hành vi được cấu hình tập trung trong \texttt{config.h}:
     \begin{itemize}
-        \item Low band: dưới \texttt{ENV\_TEMP\_BLINK\_LOW\_THRESHOLD} (\SI{24}{\degreeCelsius}).
-        \item Medium band: giữa \SI{24}{\degreeCelsius} và \SI{30}{\degreeCelsius}.
-        \item High band: trên \texttt{ENV\_TEMP\_BLINK\_HIGH\_THRESHOLD} (\SI{30}{\degreeCelsius}).
+        \item Mức thấp: dưới ngưỡng ENV\_TEMP\_BLINK\_LOW\_THRESHOLD, tương đương 24 độ C.
+        \item Mức trung bình: nằm trong khoảng từ 24 độ C đến 30 độ C.
+        \item Mức cao: trên ngưỡng ENV\_TEMP\_BLINK\_HIGH\_THRESHOLD, tương đương 30 độ C.
     \end{itemize}
 \end{itemize}
 
-\textbf{Trạng thái hiện tại trong firmware}
-Trong kiến trúc hiện tại, phản hồi môi trường theo nhiệt độ chạy chính trên nhánh NeoPixel (Task 2), còn LED đơn đóng vai trò actuator/manual indicator và đã có đầy đủ 3 profile blink bảo vệ bằng semaphore để tái sử dụng trong các cảnh báo nhiệt độ.
+Trạng thái hiện tại trong chương trình điều khiển
+Trong kiến trúc hiện tại, việc phản hồi thông tin môi trường theo nhiệt độ được thực hiện chủ yếu trên nhánh NeoPixel tại Task 2. Trong khi đó, đèn LED đơn đóng vai trò là thiết bị chấp hành hoặc chỉ báo thủ công. Thành phần này đã tích hợp đầy đủ ba kiểu chớp được bảo vệ bằng semaphore để có thể tái sử dụng trong các tình huống cảnh báo nhiệt độ.
 
 \subsection{Task 2: NeoPixel LED Control Based on Humidity}
 \textbf{Mapping độ ẩm sang màu/trạng thái}
 \begin{itemize}
-    \item \textbf{Normal:} độ ẩm trong vùng theo dõi, NeoPixel xanh lá.
-    \item \textbf{Warning:} độ ẩm thấp cảnh báo (ví dụ dưới \SI{45}{\percent}), NeoPixel cam.
-    \item \textbf{Critical:} quá khô (dưới \SI{40}{\percent}) hoặc quá ẩm (trên \SI{80}{\percent}), NeoPixel đỏ.
+    \item Trạng thái bình thường: độ ẩm nằm trong vùng theo dõi, khi đó NeoPixel sẽ hiển thị màu xanh lá.
+    \item Trạng thái cảnh báo: độ ẩm xuống thấp, chẳng hạn như dưới mức 45\%, NeoPixel sẽ chuyển sang màu cam.
+    \item Trạng thái nguy cấp: môi trường quá khô khi độ ẩm dưới 40\% hoặc quá ẩm khi trên 80\%, lúc này NeoPixel sẽ hiển thị màu đỏ.
 \end{itemize}
 
 \textbf{Đồng bộ semaphore}
@@ -46,8 +46,7 @@ Trong kiến trúc hiện tại, phản hồi môi trường theo nhiệt độ 
     \item Input manager \texttt{xSemaphoreTake(sensorSemaphore)} rồi gọi \texttt{readSensors()}, phát event \texttt{SENSOR\_DATA\_READY} cho FSM.
 \end{itemize}
 
-\textbf{Về yêu cầu ``remove all global variables''}
-Phiên bản hiện tại vẫn còn một số biến trạng thái toàn cục (nhiệt độ, độ ẩm, state TinyML, config runtime). Tuy nhiên, truy cập state đã được kiểm soát bằng mutex/semaphore hoặc critical section. Việc refactor triệt để sang context object/queue-only architecture được đưa vào hướng phát triển.
+Phiên bản hiện tại vẫn duy trì một số biến trạng thái toàn cục như nhiệt độ, độ ẩm, trạng thái của TinyML và cấu hình thực thi. Tuy nhiên, việc truy cập các trạng thái này đã được kiểm soát chặt chẽ thông qua mutex, semaphore hoặc các phân đoạn mã quan trọng. Việc tái cấu trúc triệt để sang kiến trúc đối tượng ngữ cảnh hoặc kiến trúc chỉ sử dụng hàng đợi được xác định là hướng phát triển trong tương lai.
 
 \subsection{Task 4: Web Server in Access Point Mode}
 \textbf{Giao diện đã redesign}

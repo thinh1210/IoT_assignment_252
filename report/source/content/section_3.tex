@@ -1,7 +1,7 @@
 \section{Implementation Highlights}
 
 \subsection{System Architecture Overview}
-Firmware được tổ chức theo kiến trúc phân lớp kết hợp FreeRTOS task-based runtime. Mục tiêu của cách tổ chức này là tách phần đọc input, điều phối mode, dịch vụ hệ thống và driver phần cứng để giảm coupling, giúp mở rộng thêm TinyML, AP web dashboard và CoreIOT mà không phải dồn toàn bộ logic vào một vòng lặp đơn.
+Chương trình điều khiển được tổ chức theo kiến trúc phân lớp kết hợp với cơ chế thực thi dựa trên các tác vụ của FreeRTOS. Mục tiêu của phương pháp này là tách biệt các phần như đọc dữ liệu đầu vào, điều phối chế độ hoạt động, các dịch vụ hệ thống và trình điều khiển phần cứng. Việc tách biệt giúp giảm thiểu sự phụ thuộc lẫn nhau giữa các thành phần, từ đó tạo điều kiện thuận lợi cho việc mở rộng thêm các tính năng như TinyML, bảng điều khiển web Access Point và CoreIOT mà không cần dồn toàn bộ logic xử lý vào một vòng lặp duy nhất.
 
 \clearpage
 \begin{landscape}
@@ -54,8 +54,8 @@ Driver Layer & \texttt{DHTSensor}, \texttt{LedController}, \texttt{NeonControlle
     \item \texttt{InputLayer::task\_manager} nhận semaphore rồi gọi \texttt{SensorInputService::readSensors()} để đọc DHT11.
     \item Nhiệt độ và độ ẩm mới được cập nhật vào runtime state (\texttt{globalTemp}, \texttt{globalHumi}); đồng thời \texttt{PlantCareRuntimeService::updateFromSensor()} chạy TinyML ngay sau khi có mẫu mới.
     \item Sau khi suy luận xong, Input Layer đẩy event \texttt{SENSOR\_DATA\_READY} vào queue \texttt{qInputToProcessing}.
-    \item \texttt{Main\_FSM::handleEvent()} nhận event và cập nhật nhánh xử lý môi trường, ví dụ \texttt{NeonController::updateEnvironment()} cho NeoPixel.
-    \item Các worker task theo mode dùng cùng nguồn state này để gửi telemetry lên CoreIOT, broadcast ra AP dashboard và hiển thị lên OLED.
+    \item \texttt{Main\_FSM::handleEvent()} tiếp nhận sự kiện và cập nhật các nhánh xử lý môi trường, chẳng hạn như \texttt{NeonController::updateEnvironment()} dành cho NeoPixel.
+    \item Các tác vụ công việc theo từng chế độ sẽ sử dụng chung nguồn dữ liệu trạng thái này để gửi thông tin giám sát lên CoreIOT, phát dữ liệu ra bảng điều khiển Access Point và hiển thị các thông số lên màn hình OLED.
 \end{enumerate}
 
 \textbf{Vai trò của các mode worker}

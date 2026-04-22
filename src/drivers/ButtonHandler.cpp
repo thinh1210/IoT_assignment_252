@@ -118,7 +118,7 @@ int ButtonHandler::getNextEvent(ButtonEvent &event) {
     return -1;
 }
 
-bool ButtonHandler::isPressed(int index) {
+bool ButtonHandler::isPressed(int index) {o
     if (index < 0 || index >= (int)_buttons.size()) return false;
     return _buttons[index].currentState;
 }

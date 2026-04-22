@@ -3,9 +3,9 @@
 \subsection{Group Discussion}
 Sau khi hoàn thành bản tích hợp hiện tại, nhóm thống nhất một số điểm kỹ thuật quan trọng:
 \begin{itemize}
-    \item Thiết kế theo lớp (Input/FSM/Service/Driver) giúp mở rộng tính năng nhanh và giảm rủi ro chồng chéo logic.
-    \item Semaphore/mutex là bắt buộc trong bối cảnh đa task, đặc biệt ở các vùng tranh chấp như GPIO, relay list, logging.
-    \item TinyML với mô hình nhỏ (int8) là phù hợp cho ESP32-S3: chi phí bộ nhớ thấp nhưng vẫn đủ để tạo quyết định điều khiển hữu ích theo môi trường.
+    \item Thiết kế theo kiến trúc phân lớp bao gồm Input, FSM, Service và Driver giúp mở rộng tính năng nhanh chóng và giảm rủi ro chồng chéo logic.
+    \item Sử dụng semaphore và mutex là yêu cầu bắt buộc trong môi trường đa tác vụ, đặc biệt tại các vùng có sự tranh chấp tài nguyên như GPIO, danh sách relay hoặc việc ghi nhật ký hệ thống.
+    \item Việc triển khai TinyML với các mô hình định dạng int8 là lựa chọn phù hợp cho ESP32-S3 vì giúp tối ưu hóa bộ nhớ nhưng vẫn đảm bảo khả năng ra quyết định điều khiển hiệu quả dựa trên môi trường.
     \item AP dashboard đóng vai trò then chốt cho vận hành thực tế, vì cho phép cấu hình tại chỗ khi thiết bị chưa vào mạng STA.
 \end{itemize}
 
@@ -14,7 +14,7 @@ Sau khi hoàn thành bản tích hợp hiện tại, nhóm thống nhất một 
 
 Kết quả thử nghiệm cho thấy luồng chức năng end-to-end hoạt động ổn định trong điều kiện lab. Phần TinyML đã có metric huấn luyện/validation tốt và chạy thành công trên thiết bị thật. Trong các phiên bản tiếp theo, nhóm ưu tiên:
 \begin{itemize}
-    \item xây dựng benchmark tự động cho hardware accuracy (confusion matrix trên board),
-    \item refactor giảm phụ thuộc global state theo hướng context-based architecture,
-    \item mở rộng thêm actuator (ví dụ pump GPIO thật) để tận dụng đầy đủ action space của mô hình.
+    \item xây dựng bộ đánh giá tự động cho độ chính xác trên phần cứng thông qua việc tính toán ma trận nhầm lẫn trực tiếp trên bảng mạch,
+    \item tái cấu trúc mã nguồn nhằm giảm sự phụ thuộc vào các biến trạng thái toàn cục theo hướng kiến trúc dựa trên ngữ cảnh,
+    \item mở rộng thêm các thiết bị chấp hành, chẳng hạn như máy bơm thực tế, để tận dụng tối đa không gian hành động của mô hình.
 \end{itemize}
